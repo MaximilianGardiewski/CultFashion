@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import sessionmaker
 
 from app.api.app import app
-from app.db.sitzung import baue_engine, hole_sitzung, schema_anlegen
+from app.db.sitzung import hole_sitzung
 from tests.conftest import REFERENZ, ROHEXPORT
 
 EAN_NORMAL = "4053121000035"
@@ -16,10 +16,8 @@ EAN_KAPUTT = "4012345678902"
 
 
 @pytest.fixture
-def client():
-    engine = baue_engine("sqlite://")
-    schema_anlegen(engine)
-    fabrik = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
+def client(test_engine):
+    fabrik = sessionmaker(bind=test_engine, autoflush=False, expire_on_commit=False)
 
     def sitzung_override():
         s = fabrik()

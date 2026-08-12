@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -10,10 +11,18 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.routen import router
 from app.db.sitzung import datenbank_url, schema_anlegen
 
+
+@asynccontextmanager
+async def lebenszyklus(_: FastAPI):
+    schema_anlegen()
+    yield
+
+
 app = FastAPI(
     title="Cult Fashion – Inventur",
     description="Smartphone-Inventur für die Filiale Bad Krozingen.",
     version="0.1.0",
+    lifespan=lebenszyklus,
 )
 
 # Die PWA laeuft im Browser der Mitarbeiterinnen, also auf einer anderen Herkunft.
@@ -28,11 +37,6 @@ app.add_middleware(
 )
 
 app.include_router(router)
-
-
-@app.on_event("startup")
-def starte() -> None:
-    schema_anlegen()
 
 
 @app.get("/api/status")
