@@ -139,6 +139,19 @@ BETRIEBSNUMMER = {
 }
 
 
+def ean13_gueltig(ean: str) -> bool:
+    return (len(ean) == 13 and ean.isdigit()
+            and ean13_pruefziffer(ean[:12]) == ean[12])
+
+
+# T7: gueltige EAN-13, die bewusst NICHT im Sortiment steht
+EAN_UNBEKANNT = "401481907250" + ean13_pruefziffer("401481907250")
+# T12: absichtlich falsche Pruefziffer (korrekt waere eine andere Endziffer)
+_BASIS_FALSCH = "401234567890"
+EAN_PRUEFZIFFER_FALSCH = _BASIS_FALSCH + str(
+    (int(ean13_pruefziffer(_BASIS_FALSCH)) + 1) % 10)
+
+
 def baue_ean(prefix: str, marke: str, lauf: int) -> str:
     betrieb = BETRIEBSNUMMER[marke]
     basis = prefix + betrieb + str(lauf).zfill(12 - len(prefix) - len(betrieb))
@@ -209,7 +222,20 @@ def erzeuge_zeilen() -> list[dict]:
                 })
 
     _sonderfaelle_einbauen(zeilen)
+    _pruefe(zeilen)
     return zeilen
+
+
+def _pruefe(zeilen: list[dict]) -> None:
+    """Zusicherungen, damit die Testfaelle wirklich das testen, was draufsteht."""
+    vorhanden = {z["ean"] for z in zeilen if z["ean"]}
+
+    for ean in vorhanden:
+        assert ean13_gueltig(ean), f"ungueltige EAN im Stamm: {ean}"
+
+    assert ean13_gueltig(EAN_UNBEKANNT), "T7 muss eine gueltige EAN sein"
+    assert EAN_UNBEKANNT not in vorhanden, "T7 darf nicht im Sortiment stehen"
+    assert not ean13_gueltig(EAN_PRUEFZIFFER_FALSCH), "T12 muss ungueltig sein"
 
 
 def _finde(zeilen: list[dict], **kriterien) -> list[dict]:
@@ -478,7 +504,7 @@ def datei_testfaelle(zeilen: list[dict], pfad: Path) -> None:
         ("T6", "Keine EAN im Stamm", "—",
          "Kleid Wilana Gr. 38 / Sweatjacke Ben L schwarz / Top Onlmoster S bordeaux",
          "Nicht scanbar. Muss über Suche (Artikelnummer, Name) manuell zählbar sein, Kennzeichen 'manuell'."),
-        ("T7", "Unbekannte EAN", "4014819072508",
+        ("T7", "Unbekannte EAN", EAN_UNBEKANNT,
          "Gescannter Code steht nicht in der Importdatei",
          "Trotzdem erfassen und als 'unbekannt' melden. Zählung NIE blockieren."),
         ("T8", "Negativer Buchbestand", negativ,
@@ -493,7 +519,7 @@ def datei_testfaelle(zeilen: list[dict], pfad: Path) -> None:
         ("T11", "Storno", normal,
          "Rückgängig direkt nach einem Scan",
          "Gegenbuchung −1 als neuer Eintrag im Log, kein Löschen. Log bleibt lückenlos."),
-        ("T12", "Prüfziffer falsch", "4012345678901",
+        ("T12", "Prüfziffer falsch", EAN_PRUEFZIFFER_FALSCH,
          "Beschädigtes oder falsch gedrucktes Etikett",
          "Als ungültige EAN abweisen mit hörbarem Fehlsignal, nicht stumm als unbekannt buchen."),
     ]
