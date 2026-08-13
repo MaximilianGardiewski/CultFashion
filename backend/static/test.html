@@ -38,7 +38,9 @@ button:disabled{opacity:.4;cursor:default}
 
 .liste{background:var(--karte);border:1px solid var(--rand);border-radius:14px;margin-top:20px;overflow:hidden}
 .liste h2{font-size:13px;text-transform:uppercase;letter-spacing:.05em;color:var(--gedimmt);
-          margin:0;padding:12px 16px;border-bottom:1px solid var(--rand)}
+          margin:0;padding:10px 16px;border-bottom:1px solid var(--rand);
+          display:flex;align-items:center;gap:12px}
+button.reset{margin-left:auto;padding:6px 12px;font-size:12px;text-transform:none;letter-spacing:0}
 .zeile{display:flex;align-items:center;gap:12px;padding:9px 16px;border-bottom:1px solid #eef1f6;cursor:pointer;font-size:14px}
 .zeile:last-child{border-bottom:0}
 .zeile:hover{background:#f7f9fc}
@@ -95,7 +97,9 @@ kbd{background:#fff;border:1px solid var(--rand);border-bottom-width:2px;border-
   </div>
 
   <div class="liste">
-    <h2>Testfälle</h2>
+    <h2>Testfälle
+      <button id="btn_reset" class="reset">Von vorne beginnen</button>
+    </h2>
     <div id="uebersicht"></div>
   </div>
 
@@ -253,6 +257,14 @@ function bewerte(wert) {
 }
 
 function $(id) { return document.getElementById(id); }
+
+$("btn_reset").addEventListener("click", () => {
+  if (!confirm("Alle Häkchen löschen und wieder bei T1 anfangen?")) return;
+  for (const schluessel of Object.keys(ergebnisse)) delete ergebnisse[schluessel];
+  merke();
+  index = 0;
+  zeige();
+});
 
 $("btn_weiter").addEventListener("click", () => { if (index < FAELLE.length - 1) index++; zeige(); });
 $("btn_zurueck").addEventListener("click", () => { if (index > 0) index--; zeige(); });
