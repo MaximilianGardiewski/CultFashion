@@ -10,6 +10,10 @@ from sqlalchemy.orm import sessionmaker
 BACKEND = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BACKEND))
 
+# Die Tests legen ihr Schema selbst an. Ohne das hier würde der TestClient
+# beim Start Migrationen gegen die Entwicklungsdatenbank fahren.
+os.environ["INVENTUR_AUTO_MIGRATION"] = "0"
+
 from app.db.sitzung import baue_engine, schema_anlegen  # noqa: E402
 from app.db.tabellen import Basis, Inventur, Zaehlbereich  # noqa: E402
 from app.dienste.import_dienst import importiere  # noqa: E402

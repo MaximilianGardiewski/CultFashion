@@ -32,11 +32,25 @@ Die gezählte Menge wird nie fortgeschrieben, sondern immer als Summe der
 Scan-Events berechnet. Deshalb können mehrere Geräte gleichzeitig zählen,
 und ein Storno ist eine Gegenbuchung statt einer Löschung.
 
+## Datenbank-Migrationen
+
+Das Schema wird von Alembic verwaltet. Beim Serverstart wird automatisch auf
+den aktuellen Stand migriert – eine bestehende Datenbank muss also nicht mehr
+weggeworfen werden, wenn sich etwas ändert.
+
+    alembic upgrade head          # von Hand, z. B. beim Deploy
+    alembic check                 # meldet Modelländerungen ohne Migration
+    alembic revision --autogenerate -m "was sich ändert"
+
+Auf einem Server mit mehreren Prozessen die automatische Migration abschalten
+und einmalig separat migrieren:
+
+    INVENTUR_AUTO_MIGRATION=0
+
 ## Offen
 
-- Alembic-Migrationen (aktuell `create_all` beim Start)
 - Authentifizierung
-- PWA-Frontend
+- iOS: Safari kennt kein `BarcodeDetector`, dort greift bisher nur die Suche
 
 ## Scan-Test mit dem Handy
 

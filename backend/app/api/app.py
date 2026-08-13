@@ -11,12 +11,35 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.api.routen import router
-from app.db.sitzung import datenbank_url, schema_anlegen
+from app.db.sitzung import datenbank_url
+
+
+BACKEND = Path(__file__).resolve().parent.parent.parent
+
+
+def migriere() -> None:
+    """Bringt die Datenbank auf den aktuellen Stand.
+
+    Frueher wurde hier create_all aufgerufen. Das legt fehlende Tabellen an,
+    aendert aber bestehende nie - eine Schemaaenderung liess sich nur durch
+    Wegwerfen der Datenbank nachziehen. Waehrend einer laufenden Zaehlung
+    waere das der Verlust der Inventur.
+    """
+    from alembic import command
+    from alembic.config import Config
+
+    einstellungen = Config(str(BACKEND / "alembic.ini"))
+    einstellungen.set_main_option("script_location", str(BACKEND / "migrations"))
+    command.upgrade(einstellungen, "head")
 
 
 @asynccontextmanager
 async def lebenszyklus(_: FastAPI):
-    schema_anlegen()
+    # Abschaltbar, weil zwei Fälle keine Migration beim Start wollen: Tests
+    # bauen ihr Schema selbst, und auf einem Server mit mehreren Prozessen
+    # soll genau einmal migriert werden statt bei jedem Start erneut.
+    if os.environ.get("INVENTUR_AUTO_MIGRATION", "1") != "0":
+        migriere()
     yield
 
 
