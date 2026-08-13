@@ -115,7 +115,40 @@ def erzeuge_zertifikat(ip: str) -> bool:
     return True
 
 
+def pruefe_pakete() -> bool:
+    """Fehlende Pakete deuten fast immer auf eine nicht aktivierte venv hin."""
+    fehlend = []
+    for paket in ("uvicorn", "fastapi", "sqlalchemy", "openpyxl", "alembic",
+                  "cryptography"):
+        try:
+            __import__(paket)
+        except ImportError:
+            fehlend.append(paket)
+
+    if not fehlend:
+        return True
+
+    print()
+    print("  Es fehlen: " + ", ".join(fehlend))
+    print()
+    if sys.prefix == sys.base_prefix:
+        print("  Die virtuelle Umgebung ist in diesem Fenster nicht aktiv.")
+        print("  Jedes neue Terminal braucht sie erneut:")
+        print()
+        print("    Windows      .venv\\Scripts\\Activate.ps1")
+        print("    macOS/Linux  source .venv/bin/activate")
+        print()
+    print("  Danach:")
+    print()
+    print("    pip install -r backend/requirements.txt")
+    print()
+    return False
+
+
 def main() -> None:
+    if not pruefe_pakete():
+        sys.exit(1)
+
     ip = lan_adresse()
 
     print()
