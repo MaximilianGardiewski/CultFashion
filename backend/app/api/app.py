@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import os
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.api.routen import router
 from app.db.sitzung import datenbank_url, schema_anlegen
@@ -43,3 +45,11 @@ app.include_router(router)
 def status() -> dict:
     url = datenbank_url()
     return {"status": "ok", "datenbank": url.split("://", 1)[0]}
+
+
+# Die PWA wird von derselben Herkunft ausgeliefert wie die API. Das spart im
+# Laden die CORS-Konfiguration und macht die Installation auf dem Homescreen
+# ohne zweiten Server moeglich. Muss NACH den Routen gemountet werden.
+STATISCH = Path(__file__).resolve().parent.parent.parent / "static"
+if STATISCH.is_dir():
+    app.mount("/", StaticFiles(directory=STATISCH, html=True), name="pwa")

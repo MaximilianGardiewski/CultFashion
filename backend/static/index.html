@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#12161f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/icon.svg">
+<title>Inventur – Cult Fashion</title>
+<style>
+:root{
+  --bg:#12161f; --flaeche:#1b2130; --rand:#2c3446; --text:#eef1f6;
+  --gedimmt:#98a3b8; --akzent:#4c8dff; --ok:#2fbf6b; --warn:#f0a12e; --fehler:#e2504a;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{
+  margin:0;background:var(--bg);color:var(--text);
+  font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  padding-bottom:env(safe-area-inset-bottom);overscroll-behavior:none;
+}
+header{
+  position:sticky;top:0;z-index:20;background:var(--flaeche);
+  border-bottom:1px solid var(--rand);padding:10px 14px;
+  padding-top:calc(10px + env(safe-area-inset-top));
+  display:flex;align-items:center;gap:10px
+}
+header b{font-size:15px}
+header small{color:var(--gedimmt);font-size:12px;margin-left:auto;text-align:right}
+main{padding:14px;max-width:640px;margin:0 auto}
+.karte{background:var(--flaeche);border:1px solid var(--rand);border-radius:12px;padding:14px;margin-bottom:12px}
+h2{font-size:14px;margin:0 0 10px;color:var(--gedimmt);text-transform:uppercase;letter-spacing:.05em}
+label{display:block;font-size:12px;color:var(--gedimmt);margin:10px 0 4px}
+input,select,button,textarea{font:inherit}
+input,select{
+  width:100%;padding:11px;border-radius:9px;border:1px solid var(--rand);
+  background:#141a26;color:var(--text)
+}
+button{
+  padding:12px 16px;border-radius:9px;border:1px solid var(--rand);
+  background:#232c3e;color:var(--text);cursor:pointer;font-weight:600
+}
+button.haupt{background:var(--akzent);border-color:var(--akzent);color:#fff;width:100%}
+button.gefahr{background:#3a2226;border-color:#5c3033;color:#ffb4b0}
+button:disabled{opacity:.45}
+.reihe{display:flex;gap:8px}
+.reihe>*{flex:1}
+
+nav{
+  position:fixed;bottom:0;left:0;right:0;display:flex;background:var(--flaeche);
+  border-top:1px solid var(--rand);padding-bottom:env(safe-area-inset-bottom);z-index:20
+}
+nav button{flex:1;border:0;background:none;border-radius:0;padding:11px 4px;color:var(--gedimmt);font-size:11px;font-weight:600}
+nav button.aktiv{color:var(--akzent);box-shadow:inset 0 2px 0 var(--akzent)}
+nav button span{display:block;font-size:19px;line-height:1.2}
+main{padding-bottom:84px}
+
+/* Scanner */
+#kamerabox{position:relative;background:#000;border-radius:12px;overflow:hidden;aspect-ratio:4/3}
+#video{width:100%;height:100%;object-fit:cover;display:block}
+#zielrahmen{
+  position:absolute;inset:22% 10%;border:2px solid rgba(255,255,255,.65);
+  border-radius:10px;box-shadow:0 0 0 100vmax rgba(0,0,0,.35)
+}
+#kamera_hinweis{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  text-align:center;padding:20px;color:var(--gedimmt);font-size:13px}
+
+#rueckmeldung{border-radius:12px;padding:14px;margin-top:12px;border:1px solid var(--rand);background:var(--flaeche)}
+#rueckmeldung.ok{border-color:var(--ok);background:#152a1e}
+#rueckmeldung.warn{border-color:var(--warn);background:#2b2313}
+#rueckmeldung.fehler{border-color:var(--fehler);background:#2c1a19}
+#rm_titel{font-weight:700;font-size:17px}
+#rm_zeile2{color:var(--gedimmt);font-size:13px;margin-top:3px}
+#rm_zahl{float:right;font-size:26px;font-weight:800;line-height:1}
+
+.zahlen{display:flex;gap:8px;margin-top:12px}
+.zahl{flex:1;background:var(--flaeche);border:1px solid var(--rand);border-radius:10px;padding:10px;text-align:center}
+.zahl b{display:block;font-size:21px}
+.zahl small{color:var(--gedimmt);font-size:11px}
+
+ul.liste{list-style:none;margin:0;padding:0}
+ul.liste li{
+  display:flex;align-items:center;gap:10px;padding:10px 0;
+  border-bottom:1px solid var(--rand);font-size:14px
+}
+ul.liste li:last-child{border-bottom:0}
+ul.liste .haupttext{flex:1;min-width:0}
+ul.liste .haupttext div{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+ul.liste small{color:var(--gedimmt);font-size:12px}
+.menge{font-weight:700;font-variant-numeric:tabular-nums}
+.plus{color:var(--ok)} .minus{color:var(--fehler)}
+button.klein{padding:6px 10px;font-size:12px;font-weight:600}
+
+dialog{
+  border:1px solid var(--rand);background:var(--flaeche);color:var(--text);
+  border-radius:14px;padding:0;width:min(520px,92vw);max-height:82vh
+}
+dialog::backdrop{background:rgba(0,0,0,.65)}
+dialog .kopf{padding:14px;border-bottom:1px solid var(--rand)}
+dialog .koerper{padding:8px 14px;overflow:auto;max-height:52vh}
+dialog .fuss{padding:12px 14px;border-top:1px solid var(--rand)}
+.wahl{
+  display:block;width:100%;text-align:left;margin:6px 0;padding:12px;
+  background:#141a26;border:1px solid var(--rand);border-radius:10px
+}
+.wahl b{display:block}
+.wahl small{color:var(--gedimmt)}
+
+.hinweis{color:var(--gedimmt);font-size:12.5px;margin-top:8px}
+.warnbox{background:#2b2313;border:1px solid var(--warn);border-radius:10px;padding:10px;font-size:13px;margin-top:10px}
+.versteckt{display:none!important}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{text-align:left;padding:7px 6px;border-bottom:1px solid var(--rand)}
+th{color:var(--gedimmt);font-weight:600;font-size:11px;text-transform:uppercase}
+td.zahl_re,th.zahl_re{text-align:right;font-variant-numeric:tabular-nums}
+</style>
+</head>
+<body>
+
+<header>
+  <b>Inventur</b>
+  <small id="kopf_info">nicht eingerichtet</small>
+</header>
+
+<main>
+
+<!-- ========== SCANNEN ========== -->
+<section id="seite_scan" class="versteckt">
+  <div id="kamerabox">
+    <video id="video" playsinline muted></video>
+    <div id="zielrahmen" class="versteckt"></div>
+    <div id="kamera_hinweis">Kamera ist aus</div>
+  </div>
+
+  <div class="reihe" style="margin-top:12px">
+    <button id="btn_kamera" class="haupt">Kamera starten</button>
+    <button id="btn_undo" disabled style="flex:0 0 40%">Letzten rückgängig</button>
+  </div>
+
+  <div id="rueckmeldung">
+    <div id="rm_zahl"></div>
+    <div id="rm_titel">Bereit</div>
+    <div id="rm_zeile2">Barcode in den Rahmen halten</div>
+  </div>
+
+  <div class="zahlen">
+    <div class="zahl"><b id="z_teile">0</b><small>Teile im Bereich</small></div>
+    <div class="zahl"><b id="z_scans">0</b><small>Scans</small></div>
+    <div class="zahl"><b id="z_unbekannt">0</b><small>unbekannt</small></div>
+  </div>
+
+  <div class="karte" style="margin-top:12px">
+    <h2>Zuletzt gezählt</h2>
+    <ul class="liste" id="log_liste"><li><small>noch nichts</small></li></ul>
+  </div>
+</section>
+
+<!-- ========== SUCHE ========== -->
+<section id="seite_suche" class="versteckt">
+  <div class="karte">
+    <h2>Artikel ohne Etikett</h2>
+    <input id="suchfeld" placeholder="Artikelnummer, Name, Marke oder Farbe" autocomplete="off">
+    <p class="hinweis">Für Teile, deren Hangtag fehlt. Diese Zählungen werden als „manuell“ gekennzeichnet.</p>
+    <ul class="liste" id="such_liste"></ul>
+  </div>
+</section>
+
+<!-- ========== AUSWERTUNG ========== -->
+<section id="seite_auswertung" class="versteckt">
+  <div class="zahlen">
+    <div class="zahl"><b id="a_gezaehlt">0</b><small>gezählt</small></div>
+    <div class="zahl"><b id="a_fehl">0</b><small>Fehlmenge</small></div>
+    <div class="zahl"><b id="a_ueber">0</b><small>Überbestand</small></div>
+  </div>
+  <div class="karte" style="margin-top:12px">
+    <h2>Differenzwert</h2>
+    <div style="font-size:28px;font-weight:800" id="a_wert">0,00 €</div>
+    <div class="hinweis" id="a_fortschritt"></div>
+    <button class="haupt" id="btn_export" style="margin-top:12px">Excel exportieren</button>
+  </div>
+  <div class="karte">
+    <h2>Größte Abweichungen</h2>
+    <div style="overflow-x:auto">
+      <table>
+        <thead><tr><th>Artikel</th><th class="zahl_re">Soll</th><th class="zahl_re">Ist</th><th class="zahl_re">Diff</th></tr></thead>
+        <tbody id="a_tabelle"></tbody>
+      </table>
+    </div>
+  </div>
+  <div class="karte" id="a_unbekannt_karte">
+    <h2>Unbekannte Codes</h2>
+    <ul class="liste" id="a_unbekannt"></ul>
+  </div>
+</section>
+
+<!-- ========== SETUP ========== -->
+<section id="seite_setup">
+  <div class="karte">
+    <h2>1 · Wer zählt?</h2>
+    <label for="feld_name">Name</label>
+    <input id="feld_name" placeholder="z. B. Anna" autocomplete="name">
+  </div>
+
+  <div class="karte">
+    <h2>2 · Inventur</h2>
+    <select id="feld_inventur"></select>
+    <div class="reihe" style="margin-top:10px">
+      <button id="btn_neue_inventur">Neue Inventur</button>
+      <button id="btn_laden">Auswählen</button>
+    </div>
+  </div>
+
+  <div class="karte" id="karte_import">
+    <h2>3 · Sollbestand importieren</h2>
+    <input type="file" id="feld_datei" accept=".xlsx,.xlsm">
+    <button class="haupt" id="btn_import" style="margin-top:10px">Excel hochladen</button>
+    <div id="import_ergebnis"></div>
+  </div>
+
+  <div class="karte" id="karte_bereich">
+    <h2>4 · Zählbereich</h2>
+    <select id="feld_bereich"></select>
+    <div class="reihe" style="margin-top:10px">
+      <input id="feld_neuer_bereich" placeholder="z. B. Verkaufsfläche">
+      <button id="btn_neuer_bereich" style="flex:0 0 35%">Anlegen</button>
+    </div>
+    <p class="hinweis">Ein Bereich pro Person – das verhindert, dass dieselbe Ware doppelt gezählt wird.</p>
+  </div>
+</section>
+
+</main>
+
+<nav>
+  <button data-seite="scan"><span>▣</span>Scannen</button>
+  <button data-seite="suche"><span>⌕</span>Suche</button>
+  <button data-seite="auswertung"><span>▤</span>Auswertung</button>
+  <button data-seite="setup" class="aktiv"><span>⚙</span>Setup</button>
+</nav>
+
+<dialog id="dlg_auswahl">
+  <div class="kopf">
+    <b>Welcher Artikel?</b>
+    <div class="hinweis" id="dlg_grund"></div>
+  </div>
+  <div class="koerper" id="dlg_liste"></div>
+  <div class="fuss"><button id="dlg_abbruch" style="width:100%">Abbrechen</button></div>
+</dialog>
+
+<script src="/app.js"></script>
+</body>
+</html>
