@@ -115,6 +115,10 @@ class ScanEvent(Basis):
     __table_args__ = (
         Index("ix_scan_inventur", "inventur_id", "id"),
         Index("ix_scan_position", "sollposition_id"),
+        # Ohne diese Zusicherung koennten zwei Geraete denselben Scan
+        # gleichzeitig stornieren und die Menge doppelt abziehen. NULL ist
+        # mehrfach erlaubt, betrifft also nur echte Stornobuchungen.
+        UniqueConstraint("storniert_event_id", name="uq_scan_storno_einmalig"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)

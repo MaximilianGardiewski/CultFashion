@@ -283,3 +283,95 @@ def test_buchung_fremder_inventur_wird_abgewiesen(sitzung, inventur_mit_bestand)
     position = _position(sitzung, inventur_mit_bestand, artikelnummer="6620-1234")
     with pytest.raises(scan_dienst.ScanFehler):
         scan_dienst.buche_position(sitzung, andere, position.id)
+
+
+# -- Vorbedingungen einer Buchung (aus dem PR-Review) --------------------
+
+def test_scan_ohne_importierten_sollbestand_wird_abgewiesen(sitzung, inventur):
+    """Sonst haenge die Inventur: der Import verweigert danach dauerhaft,
+    weil er bereits Scans sieht."""
+    with pytest.raises(scan_dienst.ScanFehler, match="kein Sollbestand"):
+        scan_dienst.scanne(sitzung, inventur, EAN_NORMAL)
+
+    assert sitzung.scalar(select(ScanEvent)) is None
+
+
+def test_import_bleibt_nach_abgewiesenem_scan_moeglich(sitzung, inventur):
+    from app.dienste.import_dienst import importiere
+    from app.quellen.excel import ExcelBestandsQuelle
+    from tests.conftest import REFERENZ
+
+    with pytest.raises(scan_dienst.ScanFehler):
+        scan_dienst.scanne(sitzung, inventur, EAN_NORMAL)
+
+    ergebnis, _ = importiere(sitzung, inventur, ExcelBestandsQuelle(REFERENZ), "x.xlsx")
+    assert len(ergebnis.positionen) == 173
+
+
+def test_scan_in_abgeschlossene_inventur_wird_abgewiesen(sitzung, inventur_mit_bestand):
+    inventur_mit_bestand.status = InventurStatus.ABGESCHLOSSEN.value
+    sitzung.commit()
+
+    with pytest.raises(scan_dienst.ScanFehler, match="abgeschlossen"):
+        scan_dienst.scanne(sitzung, inventur_mit_bestand, EAN_NORMAL)
+
+
+def test_storno_in_abgeschlossener_inventur_wird_abgewiesen(sitzung, inventur_mit_bestand):
+    antwort = scan_dienst.scanne(sitzung, inventur_mit_bestand, EAN_NORMAL)
+    inventur_mit_bestand.status = InventurStatus.ABGESCHLOSSEN.value
+    sitzung.commit()
+
+    with pytest.raises(scan_dienst.ScanFehler, match="abgeschlossen"):
+        scan_dienst.storniere(sitzung, inventur_mit_bestand, antwort.event_id)
+
+
+@pytest.mark.parametrize("menge", [0, -1, -5])
+def test_nicht_positive_menge_wird_abgewiesen(sitzung, inventur_mit_bestand, menge):
+    """Negative Mengen wuerden am Storno vorbei den Bestand druecken."""
+    with pytest.raises(scan_dienst.ScanFehler, match="größer als 0"):
+        scan_dienst.scanne(sitzung, inventur_mit_bestand, EAN_NORMAL, menge=menge)
+
+    position = _position(sitzung, inventur_mit_bestand, artikelnummer="6620-1234")
+    with pytest.raises(scan_dienst.ScanFehler, match="größer als 0"):
+        scan_dienst.buche_position(sitzung, inventur_mit_bestand, position.id, menge=menge)
+
+
+def test_fremder_zaehlbereich_wird_abgewiesen(sitzung, inventur_mit_bestand):
+    """Sonst faellt die Zaehlung aus beiden Bereichsuebersichten heraus."""
+    from app.db.tabellen import Inventur, Zaehlbereich
+
+    andere = Inventur(filial_nr="13", filiale="Woanders", bezeichnung="Andere")
+    sitzung.add(andere)
+    sitzung.commit()
+    fremd = Zaehlbereich(inventur_id=andere.id, name="Fremdfläche")
+    sitzung.add(fremd)
+    sitzung.commit()
+
+    with pytest.raises(scan_dienst.ScanFehler, match="Zählbereich"):
+        scan_dienst.scanne(sitzung, inventur_mit_bestand, EAN_NORMAL,
+                           zaehlbereich_id=fremd.id)
+
+    with pytest.raises(scan_dienst.ScanFehler, match="Zählbereich"):
+        scan_dienst.scanne(sitzung, inventur_mit_bestand, EAN_NORMAL,
+                           zaehlbereich_id=999999)
+
+
+def test_gleichzeitiges_storno_zieht_nur_einmal_ab(sitzung, inventur_mit_bestand):
+    """Zwei Geraete stornieren denselben Scan - die Datenbank laesst nur eines durch."""
+    from sqlalchemy.exc import IntegrityError
+
+    from app.db.tabellen import ScanEvent as Event
+
+    antwort = scan_dienst.scanne(sitzung, inventur_mit_bestand, EAN_NORMAL)
+    scan_dienst.storniere(sitzung, inventur_mit_bestand, antwort.event_id)
+
+    # Das zweite Geraet hatte die Pruefung schon passiert und schreibt direkt.
+    sitzung.add(Event(inventur_id=inventur_mit_bestand.id,
+                      sollposition_id=antwort.position.id, menge=-1,
+                      erfassungsart=Erfassungsart.STORNO.value,
+                      storniert_event_id=antwort.event_id))
+    with pytest.raises(IntegrityError):
+        sitzung.commit()
+    sitzung.rollback()
+
+    assert scan_dienst.gezaehlte_menge(sitzung, antwort.position.id) == 0

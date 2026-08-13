@@ -65,26 +65,35 @@ def _text(wert: object) -> str:
     return str(wert).strip()
 
 
+# "1.234" ist ein Tausendertrenner, "3.0" ein Dezimalpunkt. Ohne diese
+# Unterscheidung wuerde aus einem Bestand von "3.0" glatt eine 30.
+_TAUSENDER = re.compile(r"-?\d{1,3}(\.\d{3})+$")
+
+
+def _zahltext(wert: object) -> str:
+    """Bringt einen Zellwert auf eine Form, die float() versteht."""
+    text = re.sub(r"[^\d,.\-]", "", str(wert).strip())
+    if not text:
+        return ""
+
+    if "," in text:
+        # Komma ist im deutschen Format immer das Dezimaltrennzeichen,
+        # ein Punkt daneben also der Tausendertrenner.
+        text = text.replace(".", "").replace(",", ".")
+    elif _TAUSENDER.fullmatch(text):
+        text = text.replace(".", "")
+
+    return text
+
+
 def lies_preis(wert: object) -> float:
     """'79,99 €' / '1.234,56' / 79.99 -> float."""
     if wert is None or wert == "":
         return 0.0
     if isinstance(wert, (int, float)):
         return float(wert)
-
-    text = str(wert).strip()
-    text = re.sub(r"[^\d,.\-]", "", text)      # Waehrungszeichen, Leerzeichen weg
-    if not text:
-        return 0.0
-
-    if "," in text and "." in text:
-        # deutsches Format: Punkt ist Tausendertrenner
-        text = text.replace(".", "").replace(",", ".")
-    elif "," in text:
-        text = text.replace(",", ".")
-
     try:
-        return float(text)
+        return float(_zahltext(wert) or 0)
     except ValueError:
         return 0.0
 
@@ -94,8 +103,7 @@ def lies_menge(wert: object) -> int | None:
         return None
     if isinstance(wert, (int, float)):
         return int(wert)
-    text = str(wert).strip().replace(".", "").replace(",", ".")
-    text = re.sub(r"[^\d.\-]", "", text)
+    text = _zahltext(wert)
     if not text:
         return None
     try:

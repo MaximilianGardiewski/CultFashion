@@ -165,10 +165,13 @@ def liste_bereiche(inventur_id: int, sitzung: Session = Depends(hole_sitzung)):
 def scanne(inventur_id: int, daten: s.ScanAn,
            sitzung: Session = Depends(hole_sitzung)):
     inventur = _inventur(sitzung, inventur_id)
-    antwort = scan_dienst.scanne(
-        sitzung, inventur, daten.code, erfasst_von=daten.erfasst_von,
-        zaehlbereich_id=daten.zaehlbereich_id, geraet=daten.geraet,
-        menge=daten.menge)
+    try:
+        antwort = scan_dienst.scanne(
+            sitzung, inventur, daten.code, erfasst_von=daten.erfasst_von,
+            zaehlbereich_id=daten.zaehlbereich_id, geraet=daten.geraet,
+            menge=daten.menge)
+    except scan_dienst.ScanFehler as fehler:
+        raise HTTPException(409, str(fehler)) from fehler
     return s.ScanAus.aus(antwort)
 
 
@@ -190,7 +193,7 @@ def buche(inventur_id: int, daten: s.BuchungAn,
             zaehlbereich_id=daten.zaehlbereich_id, geraet=daten.geraet,
             roh_code=daten.roh_code)
     except scan_dienst.ScanFehler as fehler:
-        raise HTTPException(400, str(fehler)) from fehler
+        raise HTTPException(409, str(fehler)) from fehler
     return s.ScanAus.aus(antwort)
 
 
@@ -202,7 +205,7 @@ def storniere(inventur_id: int, event_id: int, erfasst_von: str = Query("unbekan
     try:
         antwort = scan_dienst.storniere(sitzung, inventur, event_id, erfasst_von)
     except scan_dienst.ScanFehler as fehler:
-        raise HTTPException(400, str(fehler)) from fehler
+        raise HTTPException(409, str(fehler)) from fehler
     return s.ScanAus.aus(antwort)
 
 

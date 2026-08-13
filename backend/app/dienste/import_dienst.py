@@ -18,6 +18,13 @@ class ImportGesperrt(RuntimeError):
 
 def importiere(sitzung: Session, inventur: Inventur, quelle: BestandsQuelle,
                dateiname: str, ersetzen: bool = False) -> tuple[Ladeergebnis, ImportProtokoll]:
+    if inventur.status == InventurStatus.ABGESCHLOSSEN.value:
+        # Sonst stuende die Inventur wieder auf "bereit", haette aber weiterhin
+        # ein Abschlussdatum - ein Zustand, den es fachlich nicht gibt.
+        raise ImportGesperrt(
+            "Diese Inventur ist abgeschlossen. Für eine erneute Zählung bitte "
+            "eine neue Inventur anlegen.")
+
     bereits_gezaehlt = sitzung.scalar(
         select(ScanEvent.id).where(ScanEvent.inventur_id == inventur.id).limit(1))
 

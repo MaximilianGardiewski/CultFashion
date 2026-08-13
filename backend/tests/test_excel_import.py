@@ -128,3 +128,21 @@ class TestZahlenLesen:
         assert lies_menge(3.0) == 3
         assert lies_menge("") is None
         assert lies_menge(None) is None
+
+
+class TestZahlenAusTextzellen:
+    """Aus dem PR-Review: '3.0' als Text wurde zu 30 - zehnfacher Bestand."""
+
+    def test_dezimalpunkt_multipliziert_nicht(self):
+        assert lies_menge("3.0") == 3
+        assert lies_menge("12.0") == 12
+        assert lies_preis("79.99") == 79.99
+
+    def test_tausendertrenner_bleibt_erkannt(self):
+        assert lies_menge("1.234") == 1234
+        assert lies_preis("1.234,56") == 1234.56
+        assert lies_preis("1.234") == 1234.0
+
+    def test_komma_bleibt_dezimaltrenner(self):
+        assert lies_menge("3,0") == 3
+        assert lies_preis("79,99 €") == 79.99

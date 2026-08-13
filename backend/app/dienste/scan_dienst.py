@@ -11,9 +11,10 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.db.tabellen import Inventur, ScanEvent, Sollposition
+from app.db.tabellen import Inventur, ScanEvent, Sollposition, Zaehlbereich
 from app.domain.ean import ist_gueltig, normalisiere
 from app.domain.werte import Erfassungsart, InventurStatus, ScanErgebnis
 
@@ -32,6 +33,41 @@ class ScanAntwort:
 
 class ScanFehler(RuntimeError):
     pass
+
+
+# Gezaehlt werden darf nur zwischen Import und Abschluss.
+BUCHBARE_STATUS = (InventurStatus.BEREIT.value, InventurStatus.LAEUFT.value)
+
+
+def pruefe_buchbar(sitzung: Session, inventur: Inventur,
+                   zaehlbereich_id: int | None = None,
+                   menge: int | None = None) -> None:
+    """Vorbedingungen einer Buchung - bewusst vor jedem Schreiben.
+
+    Ohne die Statuspruefung koennte in eine noch nicht importierte Inventur
+    gebucht werden; der Import wuerde danach dauerhaft verweigert, weil er
+    bereits Scans sieht. Und in eine abgeschlossene Inventur wuerden sich
+    Nachzaehlungen unbemerkt einschleichen.
+    """
+    if inventur.status == InventurStatus.ANGELEGT.value:
+        raise ScanFehler(
+            "Für diese Inventur ist noch kein Sollbestand importiert.")
+    if inventur.status == InventurStatus.ABGESCHLOSSEN.value:
+        raise ScanFehler(
+            "Diese Inventur ist abgeschlossen und kann nicht mehr geändert werden.")
+    if inventur.status not in BUCHBARE_STATUS:
+        raise ScanFehler(f"Unbekannter Inventurstatus: {inventur.status}")
+
+    if menge is not None and menge <= 0:
+        # Negative Mengen wuerden am Storno vorbei den Bestand druecken und
+        # dabei keine nachvollziehbare Gegenbuchung hinterlassen.
+        raise ScanFehler(
+            "Menge muss größer als 0 sein – Korrekturen bitte über Storno.")
+
+    if zaehlbereich_id is not None:
+        bereich = sitzung.get(Zaehlbereich, zaehlbereich_id)
+        if bereich is None or bereich.inventur_id != inventur.id:
+            raise ScanFehler("Zählbereich gehört nicht zu dieser Inventur.")
 
 
 def gezaehlte_menge(sitzung: Session, position_id: int) -> int:
@@ -71,6 +107,8 @@ def _buche(sitzung: Session, inventur: Inventur, position: Sollposition | None,
 def scanne(sitzung: Session, inventur: Inventur, roh_code: str, *,
            erfasst_von: str = "unbekannt", zaehlbereich_id: int | None = None,
            geraet: str | None = None, menge: int = 1) -> ScanAntwort:
+    pruefe_buchbar(sitzung, inventur, zaehlbereich_id, menge)
+
     roh_code = (roh_code or "").strip()
     ean = normalisiere(roh_code)
 
@@ -123,6 +161,8 @@ def buche_position(sitzung: Session, inventur: Inventur, position_id: int, *,
                    erfasst_von: str = "unbekannt", zaehlbereich_id: int | None = None,
                    geraet: str | None = None, roh_code: str | None = None) -> ScanAntwort:
     """Direkte Buchung: nach mehrdeutigem Scan oder aus der Suche (Artikel ohne EAN)."""
+    pruefe_buchbar(sitzung, inventur, zaehlbereich_id, menge)
+
     position = sitzung.get(Sollposition, position_id)
     if position is None or position.inventur_id != inventur.id:
         raise ScanFehler("Artikel gehört nicht zu dieser Inventur.")
@@ -140,6 +180,8 @@ def buche_position(sitzung: Session, inventur: Inventur, position_id: int, *,
 def storniere(sitzung: Session, inventur: Inventur, event_id: int,
               erfasst_von: str = "unbekannt") -> ScanAntwort:
     """Gegenbuchung. Loescht nichts - das Log bleibt vollstaendig."""
+    pruefe_buchbar(sitzung, inventur)
+
     original = sitzung.get(ScanEvent, event_id)
     if original is None or original.inventur_id != inventur.id:
         raise ScanFehler("Scan gehört nicht zu dieser Inventur.")
@@ -164,7 +206,13 @@ def storniere(sitzung: Session, inventur: Inventur, event_id: int,
         storniert_event_id=original.id,
     )
     sitzung.add(gegen)
-    sitzung.commit()
+    try:
+        sitzung.commit()
+    except IntegrityError as fehler:
+        # Zwei Geraete haben gleichzeitig storniert - die Eindeutigkeit auf
+        # storniert_event_id laesst nur eine Gegenbuchung durch.
+        sitzung.rollback()
+        raise ScanFehler("Dieser Scan wurde bereits storniert.") from fehler
 
     return ScanAntwort(
         ergebnis=ScanErgebnis.EINDEUTIG,

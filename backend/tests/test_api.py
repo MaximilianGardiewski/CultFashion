@@ -142,3 +142,25 @@ def test_suche_ueber_api(client, inventur_id):
 
 def test_unbekannte_inventur_gibt_404(client):
     assert client.get("/api/inventuren/999").status_code == 404
+
+
+def test_import_in_abgeschlossene_inventur_wird_abgewiesen(client, inventur_id):
+    _importiere(client, inventur_id)
+    client.post(f"/api/inventuren/{inventur_id}/abschluss")
+
+    antwort = _importiere(client, inventur_id, ersetzen=True)
+    assert antwort.status_code == 409
+    assert "abgeschlossen" in antwort.json()["detail"]
+
+
+def test_scan_ohne_sollbestand_gibt_409(client, inventur_id):
+    antwort = client.post(f"/api/inventuren/{inventur_id}/scan",
+                          json={"code": EAN_NORMAL})
+    assert antwort.status_code == 409
+
+
+def test_negative_menge_gibt_409(client, inventur_id):
+    _importiere(client, inventur_id)
+    antwort = client.post(f"/api/inventuren/{inventur_id}/scan",
+                          json={"code": EAN_NORMAL, "menge": -3})
+    assert antwort.status_code == 409
