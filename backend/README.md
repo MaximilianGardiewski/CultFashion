@@ -37,3 +37,16 @@ und ein Storno ist eine Gegenbuchung statt einer Löschung.
 - Alembic-Migrationen (aktuell `create_all` beim Start)
 - Authentifizierung
 - PWA-Frontend
+
+## Scan-Test mit dem Handy
+
+    python scripts/testlauf.py
+
+Startet den Server mit HTTPS und selbstsigniertem Zertifikat auf die LAN-Adresse.
+Chrome gibt die Kamera nur in einem secure context frei — über `http://192.168.x.x`
+bleibt sie schwarz. Deshalb der Zertifikatsumweg.
+
+    Laptop   https://localhost:8443/test.html    Barcodes einzeln, mit → durchblättern
+    Handy    https://<LAN-IP>:8443/              die App
+
+Zertifikatswarnung auf dem Handy einmal über „Erweitert → Weiter" bestätigen.
