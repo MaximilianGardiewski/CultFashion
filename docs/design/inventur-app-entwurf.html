@@ -1,0 +1,439 @@
+<title>Zählmodus</title>
+<style>
+/* Bewusst durchgehend dunkel: die Seite zeigt eine dunkle App, und ein heller
+   Rahmen darum würde die Farbwirkung der Rückmeldungen verfälschen. Deshalb
+   kein Theme-Wechsel, aber jede Farbe explizit gesetzt. */
+:root{
+  --grund:#14131A;        /* violett gebrochenes Schwarz, kein Neutralgrau */
+  --flaeche:#1E1C26;
+  --flaeche-hoch:#272430;
+  --linie:#332F3E;
+  --text:#F3F0F7;
+  --gedimmt:#9B95AA;
+  --leise:#6E6880;
+
+  --akzent:#D6A85F;       /* Messing: Aktion und Identität */
+  --akzent-tief:#3A2E19;
+
+  --gut:#4CAF7D;          /* gebucht */
+  --gut-tief:#16281F;
+  --info:#5E8FD0;         /* unbekannt, aber erfasst */
+  --info-tief:#152233;
+  --schlecht:#D9544D;     /* abgewiesen */
+  --schlecht-tief:#2C1614;
+
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0;background:var(--grund);color:var(--text);
+  font-family:var(--sans);font-size:16px;line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+}
+h1,h2,h3{text-wrap:balance;margin:0}
+:focus-visible{outline:2px solid var(--akzent);outline-offset:2px;border-radius:6px}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+.seite{max-width:1140px;margin:0 auto;padding:40px 22px 72px;
+       display:grid;gap:44px;grid-template-columns:1fr}
+@media (min-width:940px){
+  .seite{grid-template-columns:minmax(0,1fr) 372px;align-items:start;gap:56px}
+  .kopfzeile{grid-column:1/-1}
+}
+
+/* ---------- Kopf ---------- */
+.kopfzeile{display:flex;flex-direction:column;gap:10px;
+           padding-bottom:26px;border-bottom:1px solid var(--linie)}
+.marke{font-family:var(--mono);font-size:11px;letter-spacing:.18em;
+       text-transform:uppercase;color:var(--akzent)}
+.kopfzeile h1{font-size:clamp(28px,5vw,42px);font-weight:640;letter-spacing:-.02em}
+.kopfzeile p{margin:0;color:var(--gedimmt);max-width:62ch}
+
+/* ---------- Telefon ---------- */
+.buehne{display:flex;flex-direction:column;align-items:center;gap:20px}
+.telefon{
+  width:100%;max-width:392px;aspect-ratio:392/812;
+  background:var(--grund);border:1px solid var(--linie);border-radius:34px;
+  overflow:hidden;display:flex;flex-direction:column;position:relative;
+  box-shadow:0 26px 60px -22px #000,0 0 0 7px #0C0B11;
+}
+@media (max-width:520px){
+  .telefon{border-radius:26px;box-shadow:none;border-color:var(--linie);max-width:none}
+}
+
+/* Kopfleiste der App */
+.app-kopf{display:flex;align-items:center;gap:10px;padding:13px 16px;
+          border-bottom:1px solid var(--linie);background:var(--flaeche);flex:0 0 auto}
+.bereich{display:flex;align-items:center;gap:7px;font-weight:600;font-size:14px}
+.bereich::before{content:"";width:7px;height:7px;border-radius:50%;
+                 background:var(--gut);box-shadow:0 0 0 3px var(--gut-tief)}
+.zaehler{margin-left:auto;text-align:right;line-height:1.05}
+.zaehler b{font-family:var(--mono);font-size:21px;font-variant-numeric:tabular-nums;
+           display:block;letter-spacing:-.02em}
+.zaehler span{font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:var(--leise)}
+
+/* Kamera */
+.kamera{position:relative;flex:1 1 auto;min-height:0;background:#0A0910;
+        display:flex;align-items:center;justify-content:center;overflow:hidden}
+.kamera canvas{position:absolute;inset:0;width:100%;height:100%}
+.reticle{position:relative;width:74%;height:31%;border-radius:14px;
+         box-shadow:0 0 0 2000px #0A0910CC}
+.reticle i{position:absolute;width:26px;height:26px;border:2.5px solid var(--akzent)}
+.reticle i:nth-child(1){top:-1px;left:-1px;border-right:0;border-bottom:0;border-radius:12px 0 0 0}
+.reticle i:nth-child(2){top:-1px;right:-1px;border-left:0;border-bottom:0;border-radius:0 12px 0 0}
+.reticle i:nth-child(3){bottom:-1px;left:-1px;border-right:0;border-top:0;border-radius:0 0 0 12px}
+.reticle i:nth-child(4){bottom:-1px;right:-1px;border-left:0;border-top:0;border-radius:0 0 12px 0}
+.laser{position:absolute;left:8%;right:8%;height:2px;background:var(--akzent);
+       opacity:.75;animation:wandern 2.4s ease-in-out infinite}
+@keyframes wandern{0%,100%{top:14%}50%{top:86%}}
+
+/* Rückmeldung */
+.meldung{flex:0 0 auto;padding:17px 18px;border-top:1px solid var(--linie);
+         background:var(--flaeche);display:flex;align-items:center;gap:14px;
+         min-height:104px;transition:background .18s ease}
+.meldung .marker{width:4px;align-self:stretch;border-radius:3px;background:var(--linie)}
+.meldung .inhalt{flex:1;min-width:0}
+.meldung .rolle{font-family:var(--mono);font-size:10px;letter-spacing:.16em;
+                text-transform:uppercase;color:var(--leise);margin-bottom:3px}
+.meldung .titel{font-size:19px;font-weight:650;letter-spacing:-.015em;
+                white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.meldung .unter{font-size:13.5px;color:var(--gedimmt);margin-top:2px;
+                white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.meldung .menge{font-family:var(--mono);font-size:38px;font-weight:700;
+                font-variant-numeric:tabular-nums;letter-spacing:-.04em;line-height:1}
+
+.meldung[data-art=gut]{background:var(--gut-tief)}
+.meldung[data-art=gut] .marker{background:var(--gut)}
+.meldung[data-art=gut] .rolle{color:var(--gut)}
+.meldung[data-art=info]{background:var(--info-tief)}
+.meldung[data-art=info] .marker{background:var(--info)}
+.meldung[data-art=info] .rolle{color:var(--info)}
+.meldung[data-art=schlecht]{background:var(--schlecht-tief)}
+.meldung[data-art=schlecht] .marker{background:var(--schlecht)}
+.meldung[data-art=schlecht] .rolle{color:var(--schlecht)}
+.meldung[data-art=schlecht] .titel{color:#FFC9C5}
+
+/* Daumenzone */
+.daumen{flex:0 0 auto;display:flex;gap:10px;padding:12px 14px 18px;
+        background:var(--flaeche);border-top:1px solid var(--linie)}
+.daumen button{
+  font:inherit;font-weight:620;font-size:15px;color:var(--text);
+  background:var(--flaeche-hoch);border:1px solid var(--linie);
+  border-radius:14px;padding:15px 14px;cursor:pointer;flex:1;
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  transition:transform .09s ease,background .15s ease;
+}
+.daumen button:active{transform:scale(.975)}
+.daumen button.eng{flex:0 0 62px}
+.daumen button[disabled]{opacity:.38;cursor:default}
+.daumen button.zurueck{color:#F3D9A9}
+
+/* Auswahl-Sheet */
+.sheet{position:absolute;inset:auto 0 0 0;background:var(--flaeche);
+       border-top:1px solid var(--linie);border-radius:20px 20px 0 0;
+       padding:16px 16px 20px;transform:translateY(102%);
+       transition:transform .26s cubic-bezier(.22,1,.36,1);z-index:5}
+.sheet.offen{transform:translateY(0)}
+.sheet h3{font-size:16px;font-weight:640}
+.sheet .warum{font-size:12.5px;color:var(--gedimmt);margin:3px 0 14px}
+.farben{display:grid;grid-template-columns:repeat(2,1fr);gap:9px}
+.farbe{display:flex;align-items:center;gap:11px;padding:11px;cursor:pointer;
+       background:var(--flaeche-hoch);border:1px solid var(--linie);
+       border-radius:13px;font:inherit;color:var(--text);text-align:left}
+.farbe:active{transform:scale(.98)}
+.klecks{width:26px;height:26px;border-radius:8px;flex:0 0 auto;
+        box-shadow:inset 0 0 0 1px #FFFFFF22}
+.farbe b{font-size:14px;font-weight:600;display:block}
+.farbe small{font-family:var(--mono);font-size:10.5px;color:var(--leise)}
+.zuletzt{margin-left:auto;font-family:var(--mono);font-size:9px;letter-spacing:.1em;
+         text-transform:uppercase;color:var(--akzent)}
+
+/* ---------- Steuerung unter dem Telefon ---------- */
+.regie{width:100%;max-width:392px;display:flex;flex-direction:column;gap:9px}
+.regie-titel{font-family:var(--mono);font-size:10px;letter-spacing:.16em;
+             text-transform:uppercase;color:var(--leise)}
+.regie-knoepfe{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.regie button{font:inherit;font-size:13px;font-weight:600;text-align:left;
+  background:var(--flaeche);color:var(--text);border:1px solid var(--linie);
+  border-radius:11px;padding:11px 13px;cursor:pointer;line-height:1.3}
+.regie button:hover{border-color:var(--akzent);background:var(--flaeche-hoch)}
+.regie button small{display:block;font-weight:400;color:var(--leise);font-size:11px;margin-top:2px}
+
+/* ---------- Notizen ---------- */
+.notizen{display:flex;flex-direction:column;gap:22px}
+.notiz{border-left:2px solid var(--linie);padding-left:16px}
+.notiz h3{font-size:14.5px;font-weight:640;margin-bottom:5px}
+.notiz p{margin:0;font-size:14px;color:var(--gedimmt)}
+.notiz.wichtig{border-left-color:var(--akzent)}
+.notiz.wichtig h3{color:var(--akzent)}
+
+.palette{display:flex;gap:7px;flex-wrap:wrap;margin-top:9px}
+.probe{flex:1 1 62px;border-radius:9px;padding:9px 8px 8px;border:1px solid var(--linie)}
+.probe span{display:block;font-family:var(--mono);font-size:9px;color:#0000;mix-blend-mode:normal}
+.probe b{font-family:var(--mono);font-size:9.5px;letter-spacing:.04em;display:block}
+.probe i{font-style:normal;font-size:10px;display:block;margin-top:1px;opacity:.72}
+
+.vergleich{border:1px solid var(--linie);border-radius:14px;overflow:hidden}
+.vergleich div{padding:11px 14px;font-size:13.5px;display:flex;gap:10px}
+.vergleich div+div{border-top:1px solid var(--linie)}
+.vergleich .weg{color:var(--leise)}
+.vergleich .hin{color:var(--text)}
+.vergleich em{font-style:normal;font-family:var(--mono);font-size:10px;letter-spacing:.1em;
+              text-transform:uppercase;flex:0 0 44px;padding-top:2px}
+.vergleich .weg em{color:var(--leise)}
+.vergleich .hin em{color:var(--akzent)}
+</style>
+
+<div class="seite">
+
+  <header class="kopfzeile">
+    <div class="marke">Cult Fashion · Inventur · Entwurf</div>
+    <h1>Zählmodus</h1>
+    <p>
+      Der Bildschirm für jemanden, der zwei Stunden am Stück Ware zählt, das Handy
+      in einer Hand hält und die meiste Zeit auf die Ware schaut statt auf das Display.
+      Antippen simuliert Scans — alle vier Ausgänge lassen sich hier durchspielen.
+    </p>
+  </header>
+
+  <div class="buehne">
+    <div class="telefon">
+      <div class="app-kopf">
+        <div class="bereich">Verkaufsfläche</div>
+        <div class="zaehler"><b id="k_teile">0</b><span>Teile</span></div>
+      </div>
+
+      <div class="kamera" id="kamera">
+        <canvas id="leinwand"></canvas>
+        <div class="reticle"><i></i><i></i><i></i><i></i><div class="laser"></div></div>
+      </div>
+
+      <div class="meldung" id="meldung">
+        <div class="marker"></div>
+        <div class="inhalt">
+          <div class="rolle" id="m_rolle">Bereit</div>
+          <div class="titel" id="m_titel">Warte auf Barcode</div>
+          <div class="unter" id="m_unter">Etikett in den Rahmen halten</div>
+        </div>
+        <div class="menge" id="m_menge"></div>
+      </div>
+
+      <div class="daumen">
+        <button class="zurueck" id="b_undo" disabled>↺ Rückgängig</button>
+        <button class="eng" title="Artikel suchen">⌕</button>
+      </div>
+
+      <div class="sheet" id="sheet">
+        <h3>Welche Farbe?</h3>
+        <p class="warum">Vier Farben teilen sich diese EAN — Tasche Shopper Lea.</p>
+        <div class="farben" id="farben"></div>
+      </div>
+    </div>
+
+    <div class="regie">
+      <div class="regie-titel">Scan simulieren</div>
+      <div class="regie-knoepfe">
+        <button data-fall="gut">Bluse Falia<small>eindeutig · bucht sofort</small></button>
+        <button data-fall="mehrdeutig">Tasche Shopper Lea<small>eine EAN, vier Farben</small></button>
+        <button data-fall="unbekannt">Fremder Artikel<small>nicht im Sollbestand</small></button>
+        <button data-fall="ungueltig">Defektes Etikett<small>Prüfziffer falsch</small></button>
+      </div>
+    </div>
+  </div>
+
+  <div class="notizen">
+
+    <div class="notiz wichtig">
+      <h3>Die Kamera bekommt den Platz, den sie verdient</h3>
+      <p>
+        Bisher teilen sich Kamera, drei Zählerkacheln und eine Log-Liste den Bildschirm.
+        Beim Zählen ist nur eines davon wichtig. Die Kamera füllt jetzt die obere Hälfte,
+        alles andere weicht — der laufende Zähler steht klein oben rechts, das Protokoll
+        liegt eine Ebene tiefer.
+      </p>
+    </div>
+
+    <div class="notiz wichtig">
+      <h3>Lesbar auf Armlänge</h3>
+      <p>
+        Wer scannt, schaut auf die Ware, nicht aufs Display — der Blick geht nur kurz
+        hin. Deshalb trägt die Rückmeldung die Farbe der Aussage über die ganze Fläche,
+        nicht nur als Rand: grün gebucht, blau erfasst aber unbekannt, rot abgewiesen.
+        Die Menge steht in Ziffernhöhe daneben.
+      </p>
+    </div>
+
+    <div class="notiz">
+      <h3>Bedienbares nach unten</h3>
+      <p>
+        „Rückgängig“ ist die meistgenutzte Funktion nach dem Scannen und lag bisher oben
+        neben dem Kamera-Knopf, also außerhalb der Daumenreichweite. Jetzt liegt es
+        unten und über die volle Breite.
+      </p>
+    </div>
+
+    <div class="notiz">
+      <h3>Farben statt Liste</h3>
+      <p>
+        Bei mehrdeutiger EAN kommt ein Bottom-Sheet mit echten Farbflächen statt einer
+        Textliste. Man vergleicht die Fläche mit dem Teil in der Hand — schneller als
+        „bordeaux“ zu lesen. Die zuletzt gewählte Farbe steht oben, weil solche Teile
+        in Serie kommen.
+      </p>
+    </div>
+
+    <div class="notiz">
+      <h3>Palette</h3>
+      <p>
+        Dunkel bleibt dunkel — blendet im Laden weniger und spart Akku. Der Grund hat
+        einen violetten Stich statt neutralem Grau. Das Messing ist die Aktionsfarbe und
+        bewusst <em>keine</em> der drei Statusfarben, damit „was du tun kannst“ nie mit
+        „was passiert ist“ verwechselt wird.
+      </p>
+      <div class="palette">
+        <div class="probe" style="background:#14131A"><b>#14131A</b><i>Grund</i></div>
+        <div class="probe" style="background:#D6A85F;color:#2A2010"><b>#D6A85F</b><i>Aktion</i></div>
+        <div class="probe" style="background:#4CAF7D;color:#0C2418"><b>#4CAF7D</b><i>gebucht</i></div>
+        <div class="probe" style="background:#5E8FD0;color:#0C1A2B"><b>#5E8FD0</b><i>unbekannt</i></div>
+        <div class="probe" style="background:#D9544D;color:#2C0F0D"><b>#D9544D</b><i>abgewiesen</i></div>
+      </div>
+    </div>
+
+    <div class="notiz">
+      <h3>Was sich konkret ändert</h3>
+      <div class="vergleich">
+        <div class="weg"><em>vorher</em><span>Kamera 4:3, darunter Rückmeldung, drei Kacheln, Protokollliste</span></div>
+        <div class="hin"><em>jetzt</em><span>Kamera füllt die obere Hälfte, eine große Rückmeldung, Zähler in der Kopfzeile</span></div>
+        <div class="weg"><em>vorher</em><span>„Letzten rückgängig“ oben rechts neben „Kamera starten“</span></div>
+        <div class="hin"><em>jetzt</em><span>Rückgängig unten über die volle Breite, im Daumenbereich</span></div>
+        <div class="weg"><em>vorher</em><span>Farbauswahl als modaler Dialog mit Textzeilen</span></div>
+        <div class="hin"><em>jetzt</em><span>Bottom-Sheet mit Farbflächen, zuletzt gewählte oben</span></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+
+/* Artikel aus den echten Testdaten - keine Platzhalter. */
+const FAELLE = {
+  gut: { art:"gut", rolle:"Gebucht", titel:"Opus Bluse Falia",
+         unter:"offwhite · Gr. 38 · 4053121000035" },
+  unbekannt: { art:"info", rolle:"Nicht im Sollbestand", titel:"Unbekannter Artikel",
+               unter:"4014819072505 · trotzdem erfasst" },
+  ungueltig: { art:"schlecht", rolle:"Abgewiesen", titel:"Prüfziffer stimmt nicht",
+               unter:"Etikett beschädigt — bitte erneut scannen" },
+};
+const TASCHE = [
+  { name:"black",    nr:"900", hex:"#16151A" },
+  { name:"camel",    nr:"208", hex:"#B08654" },
+  { name:"navy",     nr:"401", hex:"#22304F" },
+  { name:"bordeaux", nr:"512", hex:"#5C2230" },
+];
+
+let teile = 0, letzteFarbe = null, undoMoeglich = false;
+
+function zeige({ art, rolle, titel, unter, menge }) {
+  const m = $("meldung");
+  m.dataset.art = art;
+  $("m_rolle").textContent = rolle;
+  $("m_titel").textContent = titel;
+  $("m_unter").textContent = unter;
+  $("m_menge").textContent = menge == null ? "" : menge;
+}
+
+function bucheTeil(titel, unter) {
+  teile += 1;
+  $("k_teile").textContent = teile;
+  undoMoeglich = true;
+  $("b_undo").disabled = false;
+  zeige({ art:"gut", rolle:"Gebucht", titel, unter, menge:1 });
+}
+
+function zeichneFarben() {
+  const sortiert = [...TASCHE].sort(
+    (a, b) => (b.name === letzteFarbe) - (a.name === letzteFarbe));
+  $("farben").innerHTML = sortiert.map((f) => `
+    <button class="farbe" data-farbe="${f.name}">
+      <span class="klecks" style="background:${f.hex}"></span>
+      <span><b>${f.name}</b><small>${f.nr}</small></span>
+      ${f.name === letzteFarbe ? '<span class="zuletzt">zuletzt</span>' : ""}
+    </button>`).join("");
+
+  $("farben").querySelectorAll(".farbe").forEach((b) =>
+    b.addEventListener("click", () => {
+      letzteFarbe = b.dataset.farbe;
+      $("sheet").classList.remove("offen");
+      bucheTeil("Tasche Shopper Lea", `${letzteFarbe} · onesize`);
+    }));
+}
+
+document.querySelectorAll(".regie button").forEach((b) =>
+  b.addEventListener("click", () => {
+    const fall = b.dataset.fall;
+    if (fall === "mehrdeutig") {
+      zeichneFarben();
+      $("sheet").classList.add("offen");
+      zeige({ art:"info", rolle:"Mehrdeutig", titel:"Vier Artikel teilen die EAN",
+              unter:"Bitte Farbe wählen" });
+      return;
+    }
+    $("sheet").classList.remove("offen");
+    if (fall === "gut") { bucheTeil(FAELLE.gut.titel, FAELLE.gut.unter); return; }
+    if (fall === "unbekannt") {
+      teile += 1; $("k_teile").textContent = teile;
+      undoMoeglich = true; $("b_undo").disabled = false;
+    }
+    zeige(FAELLE[fall]);
+  }));
+
+$("b_undo").addEventListener("click", () => {
+  if (!undoMoeglich) return;
+  teile = Math.max(0, teile - 1);
+  $("k_teile").textContent = teile;
+  undoMoeglich = false;
+  $("b_undo").disabled = true;
+  zeige({ art:"info", rolle:"Storniert", titel:"Gegenbuchung erfasst",
+          unter:"Das Protokoll behält beide Einträge" });
+});
+
+/* Angedeutete Kameravorschau: ein paar Kleiderstangen-Silhouetten, damit der
+   Entwurf nicht auf einer schwarzen Fläche beurteilt wird. */
+(function vorschau() {
+  const c = $("leinwand"), x = c.getContext("2d");
+  function mal() {
+    const b = c.clientWidth, h = c.clientHeight;
+    c.width = b * 2; c.height = h * 2; x.scale(2, 2);
+    const g = x.createLinearGradient(0, 0, 0, h);
+    g.addColorStop(0, "#241F2C"); g.addColorStop(1, "#100E15");
+    x.fillStyle = g; x.fillRect(0, 0, b, h);
+
+    x.strokeStyle = "#3A3446"; x.lineWidth = 2;
+    x.beginPath(); x.moveTo(0, h * .22); x.lineTo(b, h * .19); x.stroke();
+
+    const farben = ["#2E2836","#3A3040","#272231","#453A46","#2A2533","#37303F"];
+    for (let i = 0; i < 13; i++) {
+      const px = (i + .5) * (b / 13) + Math.sin(i * 2.1) * 4;
+      const oben = h * .21 + (i % 3) * 3;
+      x.strokeStyle = "#4A4356"; x.lineWidth = 1.5;
+      x.beginPath(); x.arc(px, oben - 5, 4, Math.PI, 0); x.stroke();
+      x.fillStyle = farben[i % farben.length];
+      x.beginPath();
+      x.moveTo(px, oben);
+      x.lineTo(px - 15, oben + 22);
+      x.lineTo(px - 11, h * .82);
+      x.lineTo(px + 11, h * .82);
+      x.lineTo(px + 15, oben + 22);
+      x.closePath(); x.fill();
+    }
+    x.fillStyle = "#0A0910"; x.globalAlpha = .35; x.fillRect(0, 0, b, h); x.globalAlpha = 1;
+  }
+  mal();
+  addEventListener("resize", mal);
+})();
+</script>
