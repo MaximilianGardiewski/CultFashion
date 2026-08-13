@@ -195,6 +195,51 @@ nav button.aktiv{color:var(--akzent);box-shadow:inset 0 2px 0 var(--akzent)}
 nav button span{display:block;font-size:18px;line-height:1.25}
 .versteckt{display:none!important}
 
+/* ---------- Karte ---------- */
+.abzeichen{display:flex;align-items:center;gap:5px;margin-left:auto;
+           background:var(--akzent-tief);border:1px solid var(--akzent);color:var(--akzent);
+           border-radius:999px;padding:5px 11px;font-size:13px;font-weight:700;
+           font-variant-numeric:tabular-nums;cursor:pointer}
+.abzeichen.still{background:var(--flaeche-hoch);border-color:var(--linie);color:var(--leise)}
+.zaehler{margin-left:10px}
+
+.plan{position:relative;background:#0F0E14;border:1px solid var(--linie);
+      border-radius:12px;overflow:hidden;min-height:140px}
+.plan img{display:block;width:100%;height:auto}
+.plan.bearbeiten{cursor:crosshair;outline:2px dashed var(--akzent);outline-offset:-4px}
+.plan_leer{padding:38px 16px;text-align:center;color:var(--leise);font-size:13px}
+.punkt{position:absolute;transform:translate(-50%,-50%);min-width:30px;height:30px;
+       border-radius:999px;border:2px solid #0F0E14;display:flex;align-items:center;
+       justify-content:center;font-size:11px;font-weight:700;padding:0 7px;
+       font-variant-numeric:tabular-nums;cursor:pointer;color:#14131A;
+       background:var(--leise);box-shadow:0 2px 6px #0008}
+.punkt[data-status=offen]{background:#9B95AA}
+.punkt[data-status=laeuft]{background:var(--akzent);animation:pochen 1.8s ease-in-out infinite}
+.punkt[data-status=fertig]{background:var(--gut)}
+@keyframes pochen{0%,100%{box-shadow:0 2px 6px #0008}50%{box-shadow:0 0 0 6px #D6A85F33}}
+
+.zone{display:flex;align-items:center;gap:11px;padding:11px 0;
+      border-bottom:1px solid var(--linie);cursor:pointer;width:100%;
+      background:none;border-left:0;border-right:0;border-top:0;color:inherit;
+      font:inherit;text-align:left}
+.zone:last-child{border-bottom:0}
+.zone.kind{padding-left:16px}
+.zone .wer{flex:1;min-width:0}
+.zone .wer b{display:block;font-size:14px;font-weight:600}
+.zone .wer small{color:var(--leise);font-size:11.5px}
+.balken{width:76px;height:6px;border-radius:3px;background:var(--flaeche-hoch);
+        overflow:hidden;flex:0 0 auto}
+.balken i{display:block;height:100%;background:var(--gut)}
+.balken.knapp i{background:var(--akzent)}
+.zone .zahl{font-family:var(--mono);font-size:12.5px;color:var(--gedimmt);
+            font-variant-numeric:tabular-nums;flex:0 0 auto;min-width:52px;text-align:right}
+
+.stufe_chip{font-family:var(--mono);font-size:10px;font-weight:700;border-radius:6px;
+            padding:3px 7px;flex:0 0 auto}
+.stufe1{background:var(--flaeche-hoch);color:var(--gedimmt)}
+.stufe2{background:var(--akzent-tief);color:var(--akzent)}
+.stufe3{background:var(--schlecht-tief);color:var(--schlecht)}
+
 /* ---------- Anmeldung ---------- */
 .anmeldung{position:fixed;inset:0;z-index:60;background:var(--grund);
            display:flex;align-items:center;justify-content:center;padding:22px}
@@ -215,6 +260,9 @@ textarea{width:100%;padding:12px;border-radius:11px;border:1px solid var(--linie
 
 <header class="app-kopf">
   <div class="bereich" id="kopf_bereich">nicht eingerichtet</div>
+  <button class="abzeichen versteckt" id="btn_meldungen" title="Meldungen">
+    ⚑ <span id="k_meldungen">0</span>
+  </button>
   <div class="zaehler"><b id="k_teile">0</b><span>Teile</span></div>
 </header>
 
@@ -248,6 +296,27 @@ textarea{width:100%;padding:12px;border-radius:11px;border:1px solid var(--linie
   <div class="daumen">
     <button class="knopf zurueck breit" id="b_undo" disabled>↺ Rückgängig</button>
     <button class="knopf eng haupt" id="b_kamera" title="Kamera">▣</button>
+  </div>
+</section>
+
+<!-- ========== KARTE ========== -->
+<section id="seite_karte" class="blaettert">
+  <div class="karte">
+    <h2>Ladenskizze
+      <button class="knopf klein" id="btn_bearbeiten" style="margin-left:auto">Bearbeiten</button>
+    </h2>
+    <div class="plan" id="plan">
+      <img id="plan_bild" alt="Grundriss" class="versteckt">
+      <div class="plan_leer" id="plan_leer">Noch keine Skizze hinterlegt</div>
+      <div id="plan_punkte"></div>
+    </div>
+    <p class="hinweis" id="plan_hinweis">Bereich antippen, um ihn zu übernehmen.</p>
+    <input type="file" id="feld_karte" accept="image/*" class="versteckt">
+  </div>
+
+  <div class="karte">
+    <h2>Bereiche</h2>
+    <div id="zonen_liste"></div>
   </div>
 </section>
 
@@ -331,6 +400,7 @@ textarea{width:100%;padding:12px;border-radius:11px;border:1px solid var(--linie
 </main>
 
 <nav>
+  <button data-seite="karte"><span>▦</span>Karte</button>
   <button data-seite="scan"><span>▣</span>Zählen</button>
   <button data-seite="suche"><span>⌕</span>Suche</button>
   <button data-seite="auswertung"><span>▤</span>Auswertung</button>
@@ -352,6 +422,41 @@ textarea{width:100%;padding:12px;border-radius:11px;border:1px solid var(--linie
 </div>
 
 <div class="schleier" id="schleier"></div>
+
+<div class="sheet" id="sheet_zone">
+  <h3 id="zo_name">Bereich</h3>
+  <p class="warum" id="zo_stand"></p>
+  <div id="zo_foto"></div>
+  <div class="reihe" style="margin-top:12px">
+    <button class="knopf haupt" id="zo_uebernehmen">Übernehmen</button>
+    <button class="knopf" id="zo_fertig">Fertig</button>
+  </div>
+  <div class="reihe" style="margin-top:9px">
+    <button class="knopf" id="zo_markieren">⚑ Melden</button>
+    <button class="knopf versteckt" id="zo_aendern">Ändern</button>
+  </div>
+</div>
+
+<div class="sheet" id="sheet_zone_neu">
+  <h3 id="zn_titel">Neuer Bereich</h3>
+  <p class="warum" id="zn_hinweis">Vorzählen heißt: einmal durchzählen, wie viele Teile hier hängen.</p>
+  <label for="zn_name">Name</label>
+  <input id="zn_name" placeholder="z. B. 101">
+  <label for="zn_eltern">Gehört zu</label>
+  <select id="zn_eltern"></select>
+  <label for="zn_soll">Vorgezählte Teile</label>
+  <input id="zn_soll" type="number" inputmode="numeric" min="0" placeholder="z. B. 62">
+  <label for="zn_bild">Foto (optional)</label>
+  <input id="zn_bild" type="file" accept="image/*">
+  <button class="knopf haupt" id="zn_senden" style="width:100%;margin-top:12px">Speichern</button>
+  <div id="zn_fehler"></div>
+</div>
+
+<div class="sheet" id="sheet_meldungen">
+  <h3>Meldungen</h3>
+  <p class="warum" id="md_zusammenfassung"></p>
+  <ul class="liste" id="md_liste"></ul>
+</div>
 
 <div class="sheet" id="sheet_markierung">
   <h3>Markieren</h3>

@@ -165,12 +165,13 @@ $("schleier").addEventListener("click", schliesseSheets);
 
 /* ---------- Navigation ---------- */
 
-const seiten = ["scan", "suche", "auswertung", "setup"];
+const seiten = ["karte", "scan", "suche", "auswertung", "setup"];
 function zeigeSeite(name) {
   seiten.forEach((s) => $("seite_" + s).classList.toggle("aktiv", s === name));
   document.querySelectorAll("nav button").forEach((b) =>
     b.classList.toggle("aktiv", b.dataset.seite === name));
   if (name === "auswertung") ladeAuswertung();
+  if (name === "karte") ladeKarte();
   if (name !== "scan" && laeuft) stoppeKamera();
 }
 document.querySelectorAll("nav button").forEach((b) =>
@@ -452,17 +453,299 @@ $("b_undo").addEventListener("click", async () => {
   } catch (fehler) { melde("schlecht", "Storno nicht möglich", fehler.message, ""); }
 });
 
+/* ---------- Karte ----------
+   Die Skizze ist nicht Dekoration, sondern die Fläche, über die Arbeit
+   verteilt wird: wer aufmacht, sieht was offen ist, was gerade jemand zählt
+   und was fertig ist - und nimmt sich einen Bereich. */
+
+let zonen = [];              // flach, in Anzeigereihenfolge
+let bearbeiten = false;
+let gewaehlteZone = null;
+let neueKoordinaten = null;
+
+function flach(baum) {
+  const raus = [];
+  for (const knoten of baum) {
+    raus.push(knoten);
+    for (const kind of knoten.kinder || []) raus.push({ ...kind, kind: true });
+  }
+  return raus;
+}
+
+async function ladeKarte() {
+  if (!zustand.inventurId) return;
+
+  const inventur = await api(`/inventuren/${zustand.inventurId}`);
+  const baum = await api(`/inventuren/${zustand.inventurId}/bereiche`);
+  zonen = flach(baum);
+
+  const bild = $("plan_bild");
+  if (inventur.karte_bild) {
+    bild.src = `/api/bilder/${inventur.karte_bild}`;
+    bild.classList.remove("versteckt");
+    $("plan_leer").classList.add("versteckt");
+  } else {
+    bild.classList.add("versteckt");
+    $("plan_leer").classList.remove("versteckt");
+    $("plan_leer").textContent = istAdmin()
+      ? "Noch keine Skizze. Auf „Bearbeiten“ tippen und Grundriss hochladen."
+      : "Noch keine Skizze hinterlegt.";
+  }
+
+  $("btn_bearbeiten").classList.toggle("versteckt", !istAdmin());
+  zeichnePunkte();
+  zeichneZonenListe(baum);
+}
+
+function zeichnePunkte() {
+  $("plan_punkte").innerHTML = zonen
+    .filter((z) => z.karte_x != null && z.karte_y != null)
+    .map((z) => `
+      <button class="punkt" data-id="${z.id}" data-status="${z.status}"
+              style="left:${z.karte_x * 100}%;top:${z.karte_y * 100}%"
+              title="${z.name}">${z.name}</button>`).join("");
+
+  $("plan_punkte").querySelectorAll(".punkt").forEach((b) =>
+    b.addEventListener("click", (e) => {
+      e.stopPropagation();
+      oeffneZone(Number(b.dataset.id));
+    }));
+}
+
+function zeichneZonenListe(baum) {
+  const zeile = (z, kind) => {
+    const anteil = z.anteil == null ? null : Math.round(z.anteil * 100);
+    const balken = z.soll_teile
+      ? `<span class="balken ${anteil < 100 ? "knapp" : ""}"><i style="width:${Math.min(100, anteil)}%"></i></span>`
+      : "";
+    const zahl = z.soll_teile ? `${z.gezaehlt}/${z.soll_teile}` : `${z.gezaehlt}`;
+    const wer = z.zugewiesen_an ? ` · ${z.zugewiesen_an}` : "";
+    const status = { offen: "offen", laeuft: "wird gezählt", fertig: "fertig" }[z.status];
+    return `<button class="zone ${kind ? "kind" : ""}" data-id="${z.id}">
+        <span class="wer"><b>${z.name}</b><small>${status}${wer}</small></span>
+        ${balken}<span class="zahl">${zahl}</span>
+      </button>`;
+  };
+
+  const teile = [];
+  for (const knoten of baum) {
+    teile.push(zeile(knoten, false));
+    for (const k of knoten.kinder || []) teile.push(zeile(k, true));
+  }
+  $("zonen_liste").innerHTML = teile.join("")
+    || '<p class="hinweis">Noch keine Bereiche angelegt.</p>';
+
+  $("zonen_liste").querySelectorAll(".zone").forEach((b) =>
+    b.addEventListener("click", () => oeffneZone(Number(b.dataset.id))));
+}
+
+/* -- Bereich übernehmen ------------------------------------------------ */
+
+function oeffneZone(id) {
+  const z = zonen.find((x) => x.id === id);
+  if (!z) return;
+  gewaehlteZone = z;
+
+  $("zo_name").textContent = z.name;
+  const stand = z.soll_teile
+    ? `${z.gezaehlt} von ${z.soll_teile} vorgezählten Teilen erfasst`
+    : `${z.gezaehlt} Teile erfasst · nicht vorgezählt`;
+  const wer = z.zugewiesen_an ? ` · ${z.zugewiesen_an} zählt hier` : "";
+  $("zo_stand").textContent = stand + wer;
+
+  $("zo_foto").innerHTML = z.bild
+    ? `<img src="/api/bilder/${z.bild}" alt="" style="width:100%;border-radius:11px;margin-top:6px">`
+    : "";
+  $("zo_aendern").classList.toggle("versteckt", !istAdmin());
+  $("zo_uebernehmen").textContent =
+    z.status === "laeuft" && z.zugewiesen_an === zustand.name
+      ? "Weiter zählen" : "Übernehmen";
+
+  oeffneSheet("sheet_zone");
+}
+
+$("zo_uebernehmen").addEventListener("click", async () => {
+  const z = gewaehlteZone;
+  try {
+    await api(`/inventuren/${zustand.inventurId}/bereiche/${z.id}/status`, {
+      method: "POST", body: JSON.stringify({ status: "laeuft" }),
+    });
+    zustand.bereichId = z.id;
+    zustand.bereichName = z.name;
+    zustand.teile = z.gezaehlt;
+    merkeZustand(); aktualisiereKopf();
+    schliesseSheets();
+    zeigeSeite("scan");
+    melde("", "Bereich übernommen", z.name,
+          z.soll_teile ? `${z.soll_teile} Teile vorgezählt` : "nicht vorgezählt");
+  } catch (fehler) {
+    melde("schlecht", "Nicht möglich", fehler.message, "");
+    schliesseSheets();
+  }
+});
+
+$("zo_fertig").addEventListener("click", async () => {
+  try {
+    await api(`/inventuren/${zustand.inventurId}/bereiche/${gewaehlteZone.id}/status`, {
+      method: "POST", body: JSON.stringify({ status: "fertig" }),
+    });
+    schliesseSheets();
+    await ladeKarte();
+  } catch (fehler) { alert(fehler.message); }
+});
+
+$("zo_markieren").addEventListener("click", () => {
+  const z = gewaehlteZone;
+  schliesseSheets();
+  zustand.bereichName = zustand.bereichName || z.name;
+  oeffneMarkierung(null, z.id, z.name);
+});
+
+/* -- Vorzählmodus: Bereiche anlegen ------------------------------------ */
+
+$("btn_bearbeiten").addEventListener("click", () => {
+  bearbeiten = !bearbeiten;
+  $("plan").classList.toggle("bearbeiten", bearbeiten);
+  $("btn_bearbeiten").textContent = bearbeiten ? "Fertig" : "Bearbeiten";
+  $("plan_hinweis").textContent = bearbeiten
+    ? "Auf die Skizze tippen, um einen Bereich zu setzen. Ohne Skizze unten anlegen."
+    : "Bereich antippen, um ihn zu übernehmen.";
+  if (bearbeiten && !$("plan_bild").src) $("feld_karte").click();
+});
+
+$("feld_karte").addEventListener("change", async (e) => {
+  const datei = e.target.files[0];
+  if (!datei) return;
+  const formular = new FormData();
+  formular.append("datei", datei);
+  try {
+    await api(`/inventuren/${zustand.inventurId}/karte`,
+              { method: "POST", body: formular });
+    await ladeKarte();
+  } catch (fehler) { alert(fehler.message); }
+});
+
+$("plan").addEventListener("click", (e) => {
+  if (!bearbeiten || !istAdmin()) return;
+  const kasten = $("plan").getBoundingClientRect();
+  neueKoordinaten = {
+    x: (e.clientX - kasten.left) / kasten.width,
+    y: (e.clientY - kasten.top) / kasten.height,
+  };
+  oeffneNeueZone();
+});
+
+function oeffneNeueZone() {
+  $("zn_titel").textContent = neueKoordinaten ? "Bereich auf der Skizze" : "Neuer Bereich";
+  $("zn_name").value = "";
+  $("zn_soll").value = "";
+  $("zn_bild").value = "";
+  $("zn_fehler").innerHTML = "";
+
+  // Nur Bereiche können Eltern sein - Ständer hängen darunter.
+  const eltern = zonen.filter((z) => z.ebene === "bereich" && !z.kind);
+  $("zn_eltern").innerHTML =
+    '<option value="">– eigenständiger Bereich –</option>' +
+    eltern.map((z) => `<option value="${z.id}">${z.name}</option>`).join("");
+
+  oeffneSheet("sheet_zone_neu");
+}
+
+$("zn_senden").addEventListener("click", async () => {
+  const name = $("zn_name").value.trim();
+  if (!name) return $("zn_name").focus();
+  const eltern = $("zn_eltern").value;
+  const soll = $("zn_soll").value;
+
+  try {
+    const zone = await api(`/inventuren/${zustand.inventurId}/bereiche`, {
+      method: "POST",
+      body: JSON.stringify({
+        name,
+        ebene: eltern ? "staender" : "bereich",
+        eltern_id: eltern ? Number(eltern) : null,
+        soll_teile: soll === "" ? null : Number(soll),
+        karte_x: neueKoordinaten ? neueKoordinaten.x : null,
+        karte_y: neueKoordinaten ? neueKoordinaten.y : null,
+      }),
+    });
+
+    const foto = $("zn_bild").files[0];
+    if (foto) {
+      const formular = new FormData();
+      formular.append("datei", foto);
+      await api(`/inventuren/${zustand.inventurId}/bereiche/${zone.id}/bild`,
+                { method: "POST", body: formular });
+    }
+
+    neueKoordinaten = null;
+    schliesseSheets();
+    await ladeKarte();
+  } catch (fehler) {
+    $("zn_fehler").innerHTML = `<div class="band schlecht">${fehler.message}</div>`;
+  }
+});
+
+/* ---------- Meldungen ---------- */
+
+async function ladeMeldungsZahl() {
+  if (!zustand.inventurId) return;
+  try {
+    const zahl = await api(`/inventuren/${zustand.inventurId}/markierungen/anzahl`);
+    // Nur zeigen, wenn wirklich etwas offen ist - ein Abzeichen mit "0"
+    // erzeugt Gewöhnung und wird dann auch bei "3" übersehen.
+    const knopf = $("btn_meldungen");
+    knopf.classList.toggle("versteckt", zahl.gesamt === 0);
+    knopf.classList.toggle("still", zahl.sofort === 0);
+    $("k_meldungen").textContent = zahl.gesamt;
+  } catch { /* Abzeichen ist Beiwerk */ }
+}
+
+$("btn_meldungen").addEventListener("click", async () => {
+  if (!zustand.inventurId) return;
+  const liste = await api(`/inventuren/${zustand.inventurId}/markierungen`);
+  const zahl = await api(`/inventuren/${zustand.inventurId}/markierungen/anzahl`);
+
+  $("md_zusammenfassung").textContent = zahl.gesamt
+    ? `${zahl.sofort} sofort · ${zahl.bald} heute · ${zahl.spaeter} kann warten`
+    : "Nichts offen.";
+
+  $("md_liste").innerHTML = liste.length ? liste.map((m) => `
+    <li>
+      <span class="stufe_chip stufe${m.dringlichkeit}">${m.dringlichkeit}</span>
+      <span class="haupttext">
+        <div>${m.grund}</div>
+        <small>${m.gemeldet_von} · ${new Date(m.gemeldet_am).toLocaleTimeString("de-DE")}${m.bereich ? " · " + m.bereich : ""}${m.artikel ? " · " + m.artikel : ""}</small>
+      </span>
+      ${istAdmin() ? `<button class="knopf klein" data-erledigt="${m.id}">Erledigt</button>` : ""}
+    </li>`).join("") : "<li><small>keine offenen Meldungen</small></li>";
+
+  $("md_liste").querySelectorAll("[data-erledigt]").forEach((b) =>
+    b.addEventListener("click", async () => {
+      try {
+        await api(`/inventuren/${zustand.inventurId}/markierungen/${b.dataset.erledigt}/erledigt`,
+                  { method: "POST", body: JSON.stringify({}) });
+        b.closest("li").remove();
+        await ladeMeldungsZahl();
+      } catch (fehler) { alert(fehler.message); }
+    }));
+
+  oeffneSheet("sheet_meldungen");
+});
+
 /* ---------- Markieren ----------
    Zählerinnen korrigieren nicht selbst: sie halten fest, was nicht stimmt,
    und eine Administratorin entscheidet. Die Zählung bleibt unangetastet. */
 
 let markierungBezug = null;
+let markierungBereich = null;
 
-function oeffneMarkierung(scanEventId = null) {
+function oeffneMarkierung(scanEventId = null, bereichId = null, bereichName = null) {
   markierungBezug = scanEventId;
+  markierungBereich = bereichId || zustand.bereichId;
   $("mk_bezug").textContent = scanEventId
     ? "Zur letzten Buchung – was stimmt nicht?"
-    : `Bereich ${zustand.bereichName || "–"} – was stimmt nicht?`;
+    : `${bereichName || zustand.bereichName || "Bereich"} – was stimmt nicht?`;
   $("mk_grund").value = "";
   oeffneSheet("sheet_markierung");
 }
@@ -486,10 +769,11 @@ $("mk_senden").addEventListener("click", async () => {
       body: JSON.stringify({
         grund, dringlichkeit: stufe,
         scan_event_id: markierungBezug,
-        zaehlbereich_id: markierungBezug ? null : zustand.bereichId,
+        zaehlbereich_id: markierungBezug ? null : markierungBereich,
       }),
     });
     schliesseSheets();
+    await ladeMeldungsZahl();
     melde("info", "Gemeldet", "Markierung abgeschickt",
           `Dringlichkeit ${stufe} · die Zählung bleibt unverändert`);
   } catch (fehler) {
@@ -731,7 +1015,9 @@ async function starteApp() {
   aktualisiereKopf();
   try {
     await ladeInventuren();
-    if (zustand.inventurId) { await ladeBereiche(); await ladeLetzte(); }
+    if (zustand.inventurId) {
+      await ladeBereiche(); await ladeLetzte(); await ladeMeldungsZahl();
+    }
   } catch (fehler) {
     console.error(fehler);
   }

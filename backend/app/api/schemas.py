@@ -49,12 +49,14 @@ class InventurAus(BaseModel):
     status: str
     angelegt_am: datetime | None = None
     positionen: int = 0
+    karte_bild: str | None = None
 
     @classmethod
     def aus(cls, i, positionen: int = 0) -> "InventurAus":
         return cls(id=i.id, filial_nr=i.filial_nr, filiale=i.filiale,
                    bezeichnung=i.bezeichnung, status=i.status,
-                   angelegt_am=i.angelegt_am, positionen=positionen)
+                   angelegt_am=i.angelegt_am, positionen=positionen,
+                   karte_bild=i.karte_bild)
 
 
 class BereichAn(BaseModel):
