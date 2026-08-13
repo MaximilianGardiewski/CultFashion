@@ -5,6 +5,7 @@ import sys
 from pathlib import Path
 
 import pytest
+from fastapi.testclient import TestClient
 from sqlalchemy.orm import sessionmaker
 
 BACKEND = Path(__file__).resolve().parent.parent
@@ -14,7 +15,8 @@ sys.path.insert(0, str(BACKEND))
 # beim Start Migrationen gegen die Entwicklungsdatenbank fahren.
 os.environ["INVENTUR_AUTO_MIGRATION"] = "0"
 
-from app.db.sitzung import baue_engine, schema_anlegen  # noqa: E402
+from app.api.app import app  # noqa: E402
+from app.db.sitzung import baue_engine, hole_sitzung, schema_anlegen  # noqa: E402
 from app.db.tabellen import Basis, Inventur, Zaehlbereich  # noqa: E402
 from app.dienste.import_dienst import importiere  # noqa: E402
 from app.domain.werte import InventurStatus  # noqa: E402
@@ -70,3 +72,47 @@ def bereich(sitzung, inventur):
     sitzung.add(b)
     sitzung.commit()
     return b
+
+
+def _angemeldet(c: TestClient, name: str, pin: str, rolle: str = "zaehler",
+                token: str | None = None) -> str:
+    """Legt einen Benutzer an und meldet ihn an; gibt den Token zurück."""
+    kopf = {"X-Token": token} if token else {}
+    antwort = c.post("/api/benutzer",
+                     json={"name": name, "pin": pin, "rolle": rolle}, headers=kopf)
+    assert antwort.status_code == 201, antwort.text
+    anmeldung = c.post("/api/anmeldung", json={"name": name, "pin": pin})
+    assert anmeldung.status_code == 200, anmeldung.text
+    return anmeldung.json()["token"]
+
+
+@pytest.fixture
+def roh_client(test_engine):
+    """Ohne Anmeldung – für die Tests der Anmeldung selbst."""
+    fabrik = sessionmaker(bind=test_engine, autoflush=False, expire_on_commit=False)
+
+    def sitzung_override():
+        s = fabrik()
+        try:
+            yield s
+        finally:
+            s.close()
+
+    app.dependency_overrides[hole_sitzung] = sitzung_override
+    with TestClient(app) as c:
+        yield c
+    app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def client(roh_client):
+    """Angemeldet als Administratorin – der erste Benutzer ist immer Admin."""
+    token = _angemeldet(roh_client, "Chefin", "1234")
+    roh_client.headers.update({"X-Token": token})
+    roh_client.admin_token = token
+    return roh_client
+
+
+@pytest.fixture
+def zaehler_token(client):
+    return _angemeldet(client, "Anna", "5678", "zaehler", client.admin_token)

@@ -3,33 +3,12 @@
 from __future__ import annotations
 
 import pytest
-from fastapi.testclient import TestClient
-from sqlalchemy.orm import sessionmaker
 
-from app.api.app import app
-from app.db.sitzung import hole_sitzung
 from tests.conftest import REFERENZ, ROHEXPORT
 
 EAN_NORMAL = "4053121000035"
 EAN_TASCHE = "4184711001658"
 EAN_KAPUTT = "4012345678902"
-
-
-@pytest.fixture
-def client(test_engine):
-    fabrik = sessionmaker(bind=test_engine, autoflush=False, expire_on_commit=False)
-
-    def sitzung_override():
-        s = fabrik()
-        try:
-            yield s
-        finally:
-            s.close()
-
-    app.dependency_overrides[hole_sitzung] = sitzung_override
-    with TestClient(app) as c:
-        yield c
-    app.dependency_overrides.clear()
 
 
 @pytest.fixture

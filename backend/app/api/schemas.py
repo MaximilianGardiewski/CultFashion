@@ -59,22 +59,122 @@ class InventurAus(BaseModel):
 
 class BereichAn(BaseModel):
     name: str
-    zugewiesen_an: str | None = None
+    eltern_id: int | None = None
+    ebene: str = "staender"
+    soll_teile: int | None = None
+    karte_x: float | None = None
+    karte_y: float | None = None
+    notiz: str | None = None
+
+
+class BereichAendernAn(BaseModel):
+    name: str | None = None
+    soll_teile: int | None = None
+    karte_x: float | None = None
+    karte_y: float | None = None
+    notiz: str | None = None
+
+
+class StatusAn(BaseModel):
+    status: str
 
 
 class BereichAus(BaseModel):
     id: int
     name: str
-    zugewiesen_an: str | None
+    ebene: str
+    eltern_id: int | None = None
+    zugewiesen_an: str | None = None
     status: str
-    scans: int = 0
-    teile: int = 0
+    soll_teile: int | None = None
+    gezaehlt: int = 0
+    offen: int | None = None
+    anteil: float | None = None
+    notiz: str | None = None
+    bild: str | None = None
+    karte_x: float | None = None
+    karte_y: float | None = None
+    kinder: list["BereichAus"] = Field(default_factory=list)
+
+    @classmethod
+    def aus(cls, f) -> "BereichAus":
+        b = f.bereich
+        return cls(
+            id=b.id, name=b.name, ebene=b.ebene, eltern_id=b.eltern_id,
+            zugewiesen_an=b.zugewiesen_an, status=b.status,
+            soll_teile=f.soll_teile, gezaehlt=f.gezaehlt, offen=f.offen,
+            anteil=f.anteil, notiz=b.notiz, bild=b.bild_pfad,
+            karte_x=float(b.karte_x) if b.karte_x is not None else None,
+            karte_y=float(b.karte_y) if b.karte_y is not None else None,
+            kinder=[cls.aus(k) for k in f.kinder],
+        )
+
+
+class AnmeldungAn(BaseModel):
+    name: str
+    pin: str
+    geraet: str | None = None
+
+
+class BenutzerAn(BaseModel):
+    name: str
+    pin: str
+    rolle: str = "zaehler"
+
+
+class AnmeldungAus(BaseModel):
+    token: str
+    name: str
+    rolle: str
+
+
+class BenutzerAus(BaseModel):
+    id: int
+    name: str
+    rolle: str
+
+
+class MarkierungAn(BaseModel):
+    grund: str
+    dringlichkeit: int = 1
+    zaehlbereich_id: int | None = None
+    scan_event_id: int | None = None
+    sollposition_id: int | None = None
+
+
+class ErledigtAn(BaseModel):
+    antwort: str | None = None
+
+
+class MarkierungAus(BaseModel):
+    id: int
+    grund: str
+    dringlichkeit: int
+    status: str
+    gemeldet_von: str
+    gemeldet_am: datetime | None = None
+    bereich: str | None = None
+    artikel: str | None = None
+    scan_event_id: int | None = None
+    erledigt_von: str | None = None
+    erledigt_am: datetime | None = None
+    antwort: str | None = None
+
+    @classmethod
+    def aus(cls, m) -> "MarkierungAus":
+        return cls(
+            id=m.id, grund=m.grund, dringlichkeit=m.dringlichkeit, status=m.status,
+            gemeldet_von=m.gemeldet_von, gemeldet_am=m.gemeldet_am,
+            bereich=m.bereich.name if m.bereich else None,
+            artikel=m.position.bezeichnung if m.position else None,
+            scan_event_id=m.scan_event_id,
+            erledigt_von=m.erledigt_von, erledigt_am=m.erledigt_am, antwort=m.antwort,
+        )
 
 
 class ScanAn(BaseModel):
     code: str
     zaehlbereich_id: int | None = None
-    erfasst_von: str = "unbekannt"
     geraet: str | None = None
     menge: int = 1
 
@@ -82,7 +182,6 @@ class ScanAn(BaseModel):
 class BuchungAn(BaseModel):
     position_id: int
     zaehlbereich_id: int | None = None
-    erfasst_von: str = "unbekannt"
     geraet: str | None = None
     menge: int = 1
     roh_code: str | None = None

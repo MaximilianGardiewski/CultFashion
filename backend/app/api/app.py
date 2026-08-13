@@ -10,7 +10,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from app.api.routen import router
+from app.api.routen import offen, router
 from app.db.sitzung import datenbank_url
 
 
@@ -61,6 +61,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(offen)
 app.include_router(router)
 
 

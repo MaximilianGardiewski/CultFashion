@@ -18,6 +18,33 @@ class BereichStatus(str, Enum):
     FERTIG = "fertig"
 
 
+class Ebene(str, Enum):
+    """Die Skizze der Filiale kennt zwei Ebenen.
+
+    Gezaehlt wird auf Staender-Ebene; der Bereich fasst nur zusammen und
+    traegt den Punkt auf der Karte.
+    """
+
+    BEREICH = "bereich"      # 100, 200, 300, Umkleide
+    STAENDER = "staender"    # 101 ... 106
+
+
+class Rolle(str, Enum):
+    ZAEHLER = "zaehler"
+    ADMIN = "admin"
+
+
+class Dringlichkeit(int, Enum):
+    SPAETER = 1      # kann bis zum Ende der Inventur warten
+    BALD = 2         # sollte heute geklaert werden
+    SOFORT = 3       # blockiert das Weiterzaehlen
+
+
+class MarkierungStatus(str, Enum):
+    OFFEN = "offen"
+    ERLEDIGT = "erledigt"
+
+
 class ScanErgebnis(str, Enum):
     """Was beim Aufloesen eines gescannten Codes herauskam."""
 
