@@ -265,6 +265,7 @@ async function verarbeite(antwort) {
     $("b_undo").disabled = false;
     melde("info", "Nicht im Sollbestand", "Unbekannter Artikel",
           `${antwort.ean} · trotzdem erfasst`);
+    ladeLetzte();
     return;
   }
   if (antwort.ergebnis === "mehrdeutig") {
@@ -283,6 +284,7 @@ async function verarbeite(antwort) {
   $("b_undo").disabled = false;
   melde("gut", "Gebucht", `${a.marke} ${a.artikelname}`,
         `${a.farbe} · Gr. ${a.groesse}`, antwort.gezaehlt);
+  ladeLetzte();
 }
 
 async function bucheDirekt(positionId, art, rohCode) {
@@ -360,16 +362,35 @@ $("b_undo").addEventListener("click", async () => {
     melde("info", "Storniert", "Gegenbuchung erfasst",
           antwort.artikel ? `${antwort.artikel.artikelname} · jetzt ${antwort.gezaehlt}`
                           : "Das Protokoll behält beide Einträge");
+    ladeLetzte();
   } catch (fehler) { melde("schlecht", "Storno nicht möglich", fehler.message, ""); }
 });
 
 /* ---------- Protokoll ---------- */
 
-$("meldung").addEventListener("click", async () => {
+for (const id of ["meldung", "letzte"]) {
+  $(id).addEventListener("click", async () => {
+    if (!zustand.inventurId) return;
+    oeffneSheet("sheet_log");
+    await ladeLog();
+  });
+}
+
+/* Kurzfassung unter dem Kamerakasten - nur die letzten drei, ohne Bedienung. */
+async function ladeLetzte() {
   if (!zustand.inventurId) return;
-  oeffneSheet("sheet_log");
-  await ladeLog();
-});
+  try {
+    const eintraege = await api(`/inventuren/${zustand.inventurId}/log?grenze=3`);
+    $("letzte_liste").innerHTML = eintraege.length ? eintraege.map((e) => `
+      <li>
+        <span class="menge ${e.menge < 0 ? "minus" : "plus"}">${e.menge > 0 ? "+" : ""}${e.menge}</span>
+        <span class="haupttext">
+          <div>${e.artikel}</div>
+          <small>${new Date(e.erfasst_am).toLocaleTimeString("de-DE")} · ${e.erfasst_von}</small>
+        </span>
+      </li>`).join("") : "<li><small>noch nichts gezählt</small></li>";
+  } catch { /* Anzeige ist Beiwerk, kein Grund für eine Fehlermeldung */ }
+}
 
 async function ladeLog() {
   const eintraege = await api(`/inventuren/${zustand.inventurId}/log?grenze=15`);
@@ -397,7 +418,9 @@ async function ladeLog() {
 
 /* ---------- Kamera & Entprellung ---------- */
 
-let strom = null, detektor = null, laeuft = false;
+let strom = null, detektor = null, laeuft = false, startet = false;
+let schleifenNr = 0;                // laufende Nummer der aktiven Scanschleife
+const imFlug = new Set();           // Codes, deren Buchung gerade unterwegs ist
 const gesehen = new Map();          // Code -> Zeitpunkt der letzten Sichtung
 const VERSCHWUNDEN_MS = 700;        // so lange muss ein Code weg sein, um neu zu zaehlen
 
@@ -414,6 +437,18 @@ function raeumeAuf(jetzt) {
 }
 
 async function starteKamera() {
+  // Ohne diese Sperre startet ein zweiter Tap waehrend getUserMedia eine
+  // zweite Scanschleife - beide lesen denselben Frame und buchen doppelt.
+  if (laeuft || startet) return;
+  startet = true;
+  try {
+    await starteKameraWirklich();
+  } finally {
+    startet = false;
+  }
+}
+
+async function starteKameraWirklich() {
   if (!zustand.inventurId) {
     melde("info", "Noch nicht eingerichtet", "Erst eine Inventur wählen", "");
     return zeigeSeite("setup");
@@ -439,7 +474,7 @@ async function starteKamera() {
     $("reticle").classList.remove("versteckt");
     $("b_kamera").textContent = "⏸";
     melde("", "Bereit", "Warte auf Barcode", "Etikett in den Rahmen halten");
-    schleife();
+    schleife(++schleifenNr);
   } catch (fehler) {
     $("kamera_aus").textContent = "Kamera nicht verfügbar: " + fehler.message;
   }
@@ -447,6 +482,8 @@ async function starteKamera() {
 
 function stoppeKamera() {
   laeuft = false;
+  schleifenNr += 1;                 // laufende Schleife verfaellt
+  imFlug.clear();
   if (strom) strom.getTracks().forEach((t) => t.stop());
   strom = null; gesehen.clear();
   $("reticle").classList.add("versteckt");
@@ -458,8 +495,10 @@ function stoppeKamera() {
 $("b_kamera").addEventListener("click", () => laeuft ? stoppeKamera() : starteKamera());
 
 let letztePruefung = 0;
-async function schleife() {
-  if (!laeuft) return;
+async function schleife(nr) {
+  // Nur die zuletzt gestartete Schleife laeuft weiter. Eine aeltere beendet
+  // sich hier von selbst, statt parallel weiterzuscannen.
+  if (!laeuft || nr !== schleifenNr) return;
   const jetzt = performance.now();
 
   if (jetzt - letztePruefung > 120) {          // ~8 Prüfungen/s reichen völlig
@@ -468,11 +507,21 @@ async function schleife() {
       const treffer = await detektor.detect($("video"));
       raeumeAuf(jetzt);
       for (const t of treffer) {
-        if (entprellung(t.rawValue, jetzt)) await sendeCode(t.rawValue);
+        // Solange die Buchung eines Codes unterwegs ist, wird er nicht erneut
+        // gebucht - auch dann nicht, wenn er zwischendurch aus dem Bild war.
+        if (imFlug.has(t.rawValue)) continue;
+        if (!entprellung(t.rawValue, jetzt)) continue;
+
+        imFlug.add(t.rawValue);
+        try {
+          await sendeCode(t.rawValue);
+        } finally {
+          imFlug.delete(t.rawValue);
+        }
       }
     } catch { /* einzelner Frame nicht lesbar - egal, der naechste kommt */ }
   }
-  requestAnimationFrame(schleife);
+  requestAnimationFrame(() => schleife(nr));
 }
 
 document.addEventListener("visibilitychange", () => {
@@ -550,7 +599,7 @@ $("b_export").addEventListener("click", () => {
   aktualisiereKopf();
   try {
     await ladeInventuren();
-    if (zustand.inventurId) await ladeBereiche();
+    if (zustand.inventurId) { await ladeBereiche(); await ladeLetzte(); }
   } catch (fehler) {
     console.error(fehler);
   }
