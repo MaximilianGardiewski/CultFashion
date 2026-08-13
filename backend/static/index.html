@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#12161f">
+<meta name="theme-color" content="#14131A">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="manifest" href="/manifest.webmanifest">
@@ -11,194 +11,264 @@
 <title>Inventur – Cult Fashion</title>
 <style>
 :root{
-  --bg:#12161f; --flaeche:#1b2130; --rand:#2c3446; --text:#eef1f6;
-  --gedimmt:#98a3b8; --akzent:#4c8dff; --ok:#2fbf6b; --warn:#f0a12e; --fehler:#e2504a;
+  --grund:#14131A; --flaeche:#1E1C26; --flaeche-hoch:#272430; --linie:#332F3E;
+  --text:#F3F0F7; --gedimmt:#9B95AA; --leise:#6E6880;
+  --akzent:#D6A85F; --akzent-tief:#3A2E19;
+  --gut:#4CAF7D;      --gut-tief:#16281F;
+  --info:#5E8FD0;     --info-tief:#152233;
+  --schlecht:#D9544D; --schlecht-tief:#2C1614;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
 body{
-  margin:0;background:var(--bg);color:var(--text);
-  font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
-  padding-bottom:env(safe-area-inset-bottom);overscroll-behavior:none;
+  margin:0;background:var(--grund);color:var(--text);
+  font:16px/1.5 var(--sans);-webkit-font-smoothing:antialiased;
+  display:flex;flex-direction:column;overflow:hidden;overscroll-behavior:none;
 }
-header{
-  position:sticky;top:0;z-index:20;background:var(--flaeche);
-  border-bottom:1px solid var(--rand);padding:10px 14px;
-  padding-top:calc(10px + env(safe-area-inset-top));
-  display:flex;align-items:center;gap:10px
+:focus-visible{outline:2px solid var(--akzent);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* ---------- Kopf ---------- */
+.app-kopf{
+  flex:0 0 auto;display:flex;align-items:center;gap:10px;
+  padding:12px 16px;padding-top:calc(12px + env(safe-area-inset-top));
+  background:var(--flaeche);border-bottom:1px solid var(--linie);
 }
-header b{font-size:15px}
-header small{color:var(--gedimmt);font-size:12px;margin-left:auto;text-align:right}
-main{padding:14px;max-width:640px;margin:0 auto}
-.karte{background:var(--flaeche);border:1px solid var(--rand);border-radius:12px;padding:14px;margin-bottom:12px}
-h2{font-size:14px;margin:0 0 10px;color:var(--gedimmt);text-transform:uppercase;letter-spacing:.05em}
-label{display:block;font-size:12px;color:var(--gedimmt);margin:10px 0 4px}
-input,select,button,textarea{font:inherit}
-input,select{
-  width:100%;padding:11px;border-radius:9px;border:1px solid var(--rand);
-  background:#141a26;color:var(--text)
-}
-button{
-  padding:12px 16px;border-radius:9px;border:1px solid var(--rand);
-  background:#232c3e;color:var(--text);cursor:pointer;font-weight:600
-}
-button.haupt{background:var(--akzent);border-color:var(--akzent);color:#fff;width:100%}
-button.gefahr{background:#3a2226;border-color:#5c3033;color:#ffb4b0}
-button:disabled{opacity:.45}
-.reihe{display:flex;gap:8px}
+.bereich{display:flex;align-items:center;gap:8px;font-weight:600;font-size:14px;
+         min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.bereich::before{content:"";width:7px;height:7px;border-radius:50%;flex:0 0 auto;
+                 background:var(--leise)}
+.bereich.aktiv::before{background:var(--gut);box-shadow:0 0 0 3px var(--gut-tief)}
+.zaehler{margin-left:auto;text-align:right;line-height:1.05;flex:0 0 auto}
+.zaehler b{font-family:var(--mono);font-size:21px;font-variant-numeric:tabular-nums;
+           display:block;letter-spacing:-.02em}
+.zaehler span{font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:var(--leise)}
+
+main{flex:1;min-height:0;display:flex;flex-direction:column}
+section{display:none}
+section.aktiv{display:flex;flex-direction:column;flex:1;min-height:0}
+section.blaettert{overflow-y:auto;padding:16px;gap:12px}
+
+/* ---------- Zählen ---------- */
+.kamera{position:relative;flex:1;min-height:0;background:#0A0910;
+        display:flex;align-items:center;justify-content:center;overflow:hidden}
+#video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.reticle{position:relative;width:76%;height:34%;border-radius:14px;
+         box-shadow:0 0 0 2000px #0A0910AA}
+.reticle i{position:absolute;width:26px;height:26px;border:2.5px solid var(--akzent)}
+.reticle i:nth-child(1){top:-1px;left:-1px;border-right:0;border-bottom:0;border-radius:12px 0 0 0}
+.reticle i:nth-child(2){top:-1px;right:-1px;border-left:0;border-bottom:0;border-radius:0 12px 0 0}
+.reticle i:nth-child(3){bottom:-1px;left:-1px;border-right:0;border-top:0;border-radius:0 0 0 12px}
+.reticle i:nth-child(4){bottom:-1px;right:-1px;border-left:0;border-top:0;border-radius:0 0 12px 0}
+.laser{position:absolute;left:8%;right:8%;height:2px;background:var(--akzent);
+       opacity:.7;animation:wandern 2.4s ease-in-out infinite}
+@keyframes wandern{0%,100%{top:14%}50%{top:86%}}
+.kamera-aus{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+            text-align:center;padding:24px;color:var(--gedimmt);font-size:14px;line-height:1.5}
+
+.meldung{flex:0 0 auto;display:flex;align-items:center;gap:14px;min-height:104px;
+         padding:16px 18px;background:var(--flaeche);border-top:1px solid var(--linie);
+         transition:background .18s ease;cursor:pointer;text-align:left;
+         width:100%;border-left:0;border-right:0;border-bottom:0;color:inherit;font:inherit}
+.meldung .marker{width:4px;align-self:stretch;border-radius:3px;background:var(--linie);flex:0 0 auto}
+.meldung .inhalt{flex:1;min-width:0}
+.meldung .rolle{font-family:var(--mono);font-size:10px;letter-spacing:.16em;
+                text-transform:uppercase;color:var(--leise);margin-bottom:3px}
+.meldung .titel{font-size:19px;font-weight:650;letter-spacing:-.015em;
+                white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.meldung .unter{font-size:13.5px;color:var(--gedimmt);margin-top:2px;
+                white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.meldung .menge{font-family:var(--mono);font-size:38px;font-weight:700;
+                font-variant-numeric:tabular-nums;letter-spacing:-.04em;line-height:1;flex:0 0 auto}
+.meldung[data-art=gut]{background:var(--gut-tief)}
+.meldung[data-art=gut] .marker{background:var(--gut)}
+.meldung[data-art=gut] .rolle{color:var(--gut)}
+.meldung[data-art=info]{background:var(--info-tief)}
+.meldung[data-art=info] .marker{background:var(--info)}
+.meldung[data-art=info] .rolle{color:var(--info)}
+.meldung[data-art=schlecht]{background:var(--schlecht-tief)}
+.meldung[data-art=schlecht] .marker{background:var(--schlecht)}
+.meldung[data-art=schlecht] .rolle{color:var(--schlecht)}
+.meldung[data-art=schlecht] .titel{color:#FFC9C5}
+
+.daumen{flex:0 0 auto;display:flex;gap:10px;padding:12px 14px;
+        background:var(--flaeche);border-top:1px solid var(--linie)}
+
+/* ---------- Bedienelemente ---------- */
+button,input,select{font:inherit}
+.knopf{font-weight:620;font-size:15px;color:var(--text);background:var(--flaeche-hoch);
+       border:1px solid var(--linie);border-radius:14px;padding:15px 14px;cursor:pointer;
+       display:flex;align-items:center;justify-content:center;gap:8px;
+       transition:transform .09s ease,background .15s ease}
+.knopf:active{transform:scale(.975)}
+.knopf[disabled]{opacity:.38;cursor:default}
+.knopf.breit{flex:1}
+.knopf.eng{flex:0 0 62px;padding:15px 0}
+.knopf.haupt{background:var(--akzent);border-color:var(--akzent);color:#241B0B}
+.knopf.zurueck{color:#F3D9A9}
+
+input,select{width:100%;padding:12px;border-radius:11px;border:1px solid var(--linie);
+             background:var(--grund);color:var(--text)}
+label{display:block;font-size:11px;letter-spacing:.1em;text-transform:uppercase;
+      color:var(--leise);margin:12px 0 5px}
+.karte{background:var(--flaeche);border:1px solid var(--linie);border-radius:16px;padding:16px}
+.karte h2{font-family:var(--mono);font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;
+          color:var(--akzent);margin:0 0 12px;font-weight:600}
+.reihe{display:flex;gap:9px}
 .reihe>*{flex:1}
+.hinweis{color:var(--gedimmt);font-size:12.5px;margin:9px 0 0}
 
-nav{
-  position:fixed;bottom:0;left:0;right:0;display:flex;background:var(--flaeche);
-  border-top:1px solid var(--rand);padding-bottom:env(safe-area-inset-bottom);z-index:20
-}
-nav button{flex:1;border:0;background:none;border-radius:0;padding:11px 4px;color:var(--gedimmt);font-size:11px;font-weight:600}
-nav button.aktiv{color:var(--akzent);box-shadow:inset 0 2px 0 var(--akzent)}
-nav button span{display:block;font-size:19px;line-height:1.2}
-main{padding-bottom:84px}
+/* ---------- Sheet ---------- */
+.sheet{position:fixed;inset:auto 0 0 0;z-index:40;background:var(--flaeche);
+       border-top:1px solid var(--linie);border-radius:20px 20px 0 0;
+       padding:16px 16px calc(20px + env(safe-area-inset-bottom));
+       transform:translateY(102%);transition:transform .26s cubic-bezier(.22,1,.36,1);
+       max-height:80vh;overflow-y:auto}
+.sheet.offen{transform:translateY(0)}
+.sheet h3{font-size:16px;font-weight:640;margin:0}
+.sheet .warum{font-size:12.5px;color:var(--gedimmt);margin:3px 0 14px}
+.schleier{position:fixed;inset:0;background:#0A0910AA;z-index:30;opacity:0;
+          pointer-events:none;transition:opacity .2s ease}
+.schleier.offen{opacity:1;pointer-events:auto}
 
-/* Scanner */
-#kamerabox{position:relative;background:#000;border-radius:12px;overflow:hidden;aspect-ratio:4/3}
-#video{width:100%;height:100%;object-fit:cover;display:block}
-#zielrahmen{
-  position:absolute;inset:22% 10%;border:2px solid rgba(255,255,255,.65);
-  border-radius:10px;box-shadow:0 0 0 100vmax rgba(0,0,0,.35)
-}
-#kamera_hinweis{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
-  text-align:center;padding:20px;color:var(--gedimmt);font-size:13px}
+.farben{display:grid;grid-template-columns:repeat(2,1fr);gap:9px}
+.farbe{display:flex;align-items:center;gap:11px;padding:11px;cursor:pointer;
+       background:var(--flaeche-hoch);border:1px solid var(--linie);border-radius:13px;
+       color:var(--text);text-align:left;width:100%}
+.farbe:active{transform:scale(.98)}
+.klecks{width:26px;height:26px;border-radius:8px;flex:0 0 auto;
+        box-shadow:inset 0 0 0 1px #FFFFFF22}
+.farbe b{font-size:14px;font-weight:600;display:block}
+.farbe small{font-family:var(--mono);font-size:10.5px;color:var(--leise)}
+.zuletzt{margin-left:auto;font-family:var(--mono);font-size:9px;letter-spacing:.1em;
+         text-transform:uppercase;color:var(--akzent)}
 
-#rueckmeldung{border-radius:12px;padding:14px;margin-top:12px;border:1px solid var(--rand);background:var(--flaeche)}
-#rueckmeldung.ok{border-color:var(--ok);background:#152a1e}
-#rueckmeldung.warn{border-color:var(--warn);background:#2b2313}
-#rueckmeldung.fehler{border-color:var(--fehler);background:#2c1a19}
-#rm_titel{font-weight:700;font-size:17px}
-#rm_zeile2{color:var(--gedimmt);font-size:13px;margin-top:3px}
-#rm_zahl{float:right;font-size:26px;font-weight:800;line-height:1}
-
-.zahlen{display:flex;gap:8px;margin-top:12px}
-.zahl{flex:1;background:var(--flaeche);border:1px solid var(--rand);border-radius:10px;padding:10px;text-align:center}
-.zahl b{display:block;font-size:21px}
-.zahl small{color:var(--gedimmt);font-size:11px}
-
+/* ---------- Listen ---------- */
 ul.liste{list-style:none;margin:0;padding:0}
-ul.liste li{
-  display:flex;align-items:center;gap:10px;padding:10px 0;
-  border-bottom:1px solid var(--rand);font-size:14px
-}
+ul.liste li{display:flex;align-items:center;gap:11px;padding:11px 0;
+            border-bottom:1px solid var(--linie);font-size:14px}
 ul.liste li:last-child{border-bottom:0}
 ul.liste .haupttext{flex:1;min-width:0}
 ul.liste .haupttext div{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-ul.liste small{color:var(--gedimmt);font-size:12px}
-.menge{font-weight:700;font-variant-numeric:tabular-nums}
-.plus{color:var(--ok)} .minus{color:var(--fehler)}
-button.klein{padding:6px 10px;font-size:12px;font-weight:600}
+ul.liste small{color:var(--leise);font-size:12px}
+.menge{font-family:var(--mono);font-weight:700;font-variant-numeric:tabular-nums;flex:0 0 auto}
+.plus{color:var(--gut)} .minus{color:var(--schlecht)}
+.knopf.klein{padding:7px 11px;font-size:12px;border-radius:9px;flex:0 0 auto}
 
-dialog{
-  border:1px solid var(--rand);background:var(--flaeche);color:var(--text);
-  border-radius:14px;padding:0;width:min(520px,92vw);max-height:82vh
-}
-dialog::backdrop{background:rgba(0,0,0,.65)}
-dialog .kopf{padding:14px;border-bottom:1px solid var(--rand)}
-dialog .koerper{padding:8px 14px;overflow:auto;max-height:52vh}
-dialog .fuss{padding:12px 14px;border-top:1px solid var(--rand)}
-.wahl{
-  display:block;width:100%;text-align:left;margin:6px 0;padding:12px;
-  background:#141a26;border:1px solid var(--rand);border-radius:10px
-}
-.wahl b{display:block}
-.wahl small{color:var(--gedimmt)}
+/* ---------- Kennzahlen ---------- */
+.kennzahlen{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}
+.kennzahl{background:var(--flaeche);border:1px solid var(--linie);border-radius:14px;
+          padding:13px 11px;text-align:center}
+.kennzahl b{display:block;font-family:var(--mono);font-size:22px;font-weight:700;
+            font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.kennzahl span{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--leise)}
+.wert{font-family:var(--mono);font-size:30px;font-weight:700;letter-spacing:-.03em;
+      font-variant-numeric:tabular-nums}
 
-.hinweis{color:var(--gedimmt);font-size:12.5px;margin-top:8px}
-.warnbox{background:#2b2313;border:1px solid var(--warn);border-radius:10px;padding:10px;font-size:13px;margin-top:10px}
-.versteckt{display:none!important}
 table{width:100%;border-collapse:collapse;font-size:13px}
-th,td{text-align:left;padding:7px 6px;border-bottom:1px solid var(--rand)}
-th{color:var(--gedimmt);font-weight:600;font-size:11px;text-transform:uppercase}
-td.zahl_re,th.zahl_re{text-align:right;font-variant-numeric:tabular-nums}
+th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--linie);vertical-align:top}
+th{font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;
+   color:var(--leise);font-weight:600}
+td.re,th.re{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums}
+.rollt{overflow-x:auto}
+
+.band{border-radius:12px;padding:12px 14px;font-size:13.5px;margin-top:10px;
+      border:1px solid var(--linie);background:var(--flaeche-hoch)}
+.band.gut{background:var(--gut-tief);border-color:var(--gut)}
+.band.schlecht{background:var(--schlecht-tief);border-color:var(--schlecht)}
+
+/* ---------- Navigation ---------- */
+nav{flex:0 0 auto;display:flex;background:var(--flaeche);border-top:1px solid var(--linie);
+    padding-bottom:env(safe-area-inset-bottom)}
+nav button{flex:1;border:0;background:none;padding:9px 4px;color:var(--leise);
+           font-size:10.5px;font-weight:600;cursor:pointer;letter-spacing:.02em}
+nav button.aktiv{color:var(--akzent);box-shadow:inset 0 2px 0 var(--akzent)}
+nav button span{display:block;font-size:18px;line-height:1.25}
+.versteckt{display:none!important}
 </style>
 </head>
 <body>
 
-<header>
-  <b>Inventur</b>
-  <small id="kopf_info">nicht eingerichtet</small>
+<header class="app-kopf">
+  <div class="bereich" id="kopf_bereich">nicht eingerichtet</div>
+  <div class="zaehler"><b id="k_teile">0</b><span>Teile</span></div>
 </header>
 
 <main>
 
-<!-- ========== SCANNEN ========== -->
-<section id="seite_scan" class="versteckt">
-  <div id="kamerabox">
+<!-- ========== ZÄHLEN ========== -->
+<section id="seite_scan">
+  <div class="kamera">
     <video id="video" playsinline muted></video>
-    <div id="zielrahmen" class="versteckt"></div>
-    <div id="kamera_hinweis">Kamera ist aus</div>
+    <div class="reticle versteckt" id="reticle"><i></i><i></i><i></i><i></i><div class="laser"></div></div>
+    <div class="kamera-aus" id="kamera_aus">Kamera ist aus</div>
   </div>
 
-  <div class="reihe" style="margin-top:12px">
-    <button id="btn_kamera" class="haupt">Kamera starten</button>
-    <button id="btn_undo" disabled style="flex:0 0 40%">Letzten rückgängig</button>
-  </div>
+  <button class="meldung" id="meldung" title="Zuletzt gezählt anzeigen">
+    <span class="marker"></span>
+    <span class="inhalt">
+      <span class="rolle" id="m_rolle">Bereit</span>
+      <span class="titel" id="m_titel">Warte auf Barcode</span>
+      <span class="unter" id="m_unter">Etikett in den Rahmen halten</span>
+    </span>
+    <span class="menge" id="m_menge"></span>
+  </button>
 
-  <div id="rueckmeldung">
-    <div id="rm_zahl"></div>
-    <div id="rm_titel">Bereit</div>
-    <div id="rm_zeile2">Barcode in den Rahmen halten</div>
-  </div>
-
-  <div class="zahlen">
-    <div class="zahl"><b id="z_teile">0</b><small>Teile im Bereich</small></div>
-    <div class="zahl"><b id="z_scans">0</b><small>Scans</small></div>
-    <div class="zahl"><b id="z_unbekannt">0</b><small>unbekannt</small></div>
-  </div>
-
-  <div class="karte" style="margin-top:12px">
-    <h2>Zuletzt gezählt</h2>
-    <ul class="liste" id="log_liste"><li><small>noch nichts</small></li></ul>
+  <div class="daumen">
+    <button class="knopf zurueck breit" id="b_undo" disabled>↺ Rückgängig</button>
+    <button class="knopf eng haupt" id="b_kamera" title="Kamera">▣</button>
   </div>
 </section>
 
 <!-- ========== SUCHE ========== -->
-<section id="seite_suche" class="versteckt">
+<section id="seite_suche" class="blaettert">
   <div class="karte">
     <h2>Artikel ohne Etikett</h2>
     <input id="suchfeld" placeholder="Artikelnummer, Name, Marke oder Farbe" autocomplete="off">
-    <p class="hinweis">Für Teile, deren Hangtag fehlt. Diese Zählungen werden als „manuell“ gekennzeichnet.</p>
-    <ul class="liste" id="such_liste"></ul>
+    <p class="hinweis">Für Teile, deren Hangtag fehlt. Wird als „manuell“ protokolliert.</p>
   </div>
+  <div class="karte"><ul class="liste" id="such_liste"><li><small>noch nichts gesucht</small></li></ul></div>
 </section>
 
 <!-- ========== AUSWERTUNG ========== -->
-<section id="seite_auswertung" class="versteckt">
-  <div class="zahlen">
-    <div class="zahl"><b id="a_gezaehlt">0</b><small>gezählt</small></div>
-    <div class="zahl"><b id="a_fehl">0</b><small>Fehlmenge</small></div>
-    <div class="zahl"><b id="a_ueber">0</b><small>Überbestand</small></div>
+<section id="seite_auswertung" class="blaettert">
+  <div class="kennzahlen">
+    <div class="kennzahl"><b id="a_gezaehlt">0</b><span>gezählt</span></div>
+    <div class="kennzahl"><b id="a_fehl" style="color:var(--schlecht)">0</b><span>fehlt</span></div>
+    <div class="kennzahl"><b id="a_ueber" style="color:var(--gut)">0</b><span>zu viel</span></div>
   </div>
-  <div class="karte" style="margin-top:12px">
+
+  <div class="karte">
     <h2>Differenzwert</h2>
-    <div style="font-size:28px;font-weight:800" id="a_wert">0,00 €</div>
-    <div class="hinweis" id="a_fortschritt"></div>
-    <button class="haupt" id="btn_export" style="margin-top:12px">Excel exportieren</button>
+    <div class="wert" id="a_wert">0,00 €</div>
+    <p class="hinweis" id="a_fortschritt"></p>
+    <div class="reihe" style="margin-top:14px">
+      <button class="knopf haupt" id="b_export">Excel exportieren</button>
+    </div>
   </div>
+
   <div class="karte">
     <h2>Größte Abweichungen</h2>
-    <div style="overflow-x:auto">
+    <div class="rollt">
       <table>
-        <thead><tr><th>Artikel</th><th class="zahl_re">Soll</th><th class="zahl_re">Ist</th><th class="zahl_re">Diff</th></tr></thead>
+        <thead><tr><th>Artikel</th><th class="re">Soll</th><th class="re">Ist</th><th class="re">Diff</th></tr></thead>
         <tbody id="a_tabelle"></tbody>
       </table>
     </div>
   </div>
-  <div class="karte" id="a_unbekannt_karte">
+
+  <div class="karte versteckt" id="a_unbekannt_karte">
     <h2>Unbekannte Codes</h2>
     <ul class="liste" id="a_unbekannt"></ul>
   </div>
 </section>
 
 <!-- ========== SETUP ========== -->
-<section id="seite_setup">
+<section id="seite_setup" class="blaettert aktiv">
   <div class="karte">
-    <h2>1 · Wer zählt?</h2>
-    <label for="feld_name">Name</label>
+    <h2>1 · Wer zählt</h2>
     <input id="feld_name" placeholder="z. B. Anna" autocomplete="name">
   </div>
 
@@ -206,46 +276,51 @@ td.zahl_re,th.zahl_re{text-align:right;font-variant-numeric:tabular-nums}
     <h2>2 · Inventur</h2>
     <select id="feld_inventur"></select>
     <div class="reihe" style="margin-top:10px">
-      <button id="btn_neue_inventur">Neue Inventur</button>
-      <button id="btn_laden">Auswählen</button>
+      <button class="knopf" id="btn_neue_inventur">Neue anlegen</button>
+      <button class="knopf haupt" id="btn_laden">Auswählen</button>
     </div>
   </div>
 
-  <div class="karte" id="karte_import">
-    <h2>3 · Sollbestand importieren</h2>
+  <div class="karte">
+    <h2>3 · Sollbestand</h2>
     <input type="file" id="feld_datei" accept=".xlsx,.xlsm">
-    <button class="haupt" id="btn_import" style="margin-top:10px">Excel hochladen</button>
+    <button class="knopf haupt" id="btn_import" style="margin-top:10px;width:100%">Excel hochladen</button>
     <div id="import_ergebnis"></div>
   </div>
 
-  <div class="karte" id="karte_bereich">
+  <div class="karte">
     <h2>4 · Zählbereich</h2>
     <select id="feld_bereich"></select>
     <div class="reihe" style="margin-top:10px">
       <input id="feld_neuer_bereich" placeholder="z. B. Verkaufsfläche">
-      <button id="btn_neuer_bereich" style="flex:0 0 35%">Anlegen</button>
+      <button class="knopf" id="btn_neuer_bereich" style="flex:0 0 38%">Anlegen</button>
     </div>
-    <p class="hinweis">Ein Bereich pro Person – das verhindert, dass dieselbe Ware doppelt gezählt wird.</p>
+    <p class="hinweis">Ein Bereich pro Person – so wird nichts doppelt gezählt.</p>
   </div>
 </section>
 
 </main>
 
 <nav>
-  <button data-seite="scan"><span>▣</span>Scannen</button>
+  <button data-seite="scan"><span>▣</span>Zählen</button>
   <button data-seite="suche"><span>⌕</span>Suche</button>
   <button data-seite="auswertung"><span>▤</span>Auswertung</button>
   <button data-seite="setup" class="aktiv"><span>⚙</span>Setup</button>
 </nav>
 
-<dialog id="dlg_auswahl">
-  <div class="kopf">
-    <b>Welcher Artikel?</b>
-    <div class="hinweis" id="dlg_grund"></div>
-  </div>
-  <div class="koerper" id="dlg_liste"></div>
-  <div class="fuss"><button id="dlg_abbruch" style="width:100%">Abbrechen</button></div>
-</dialog>
+<div class="schleier" id="schleier"></div>
+
+<div class="sheet" id="sheet_farben">
+  <h3>Welcher Artikel?</h3>
+  <p class="warum" id="sheet_warum"></p>
+  <div class="farben" id="farben"></div>
+</div>
+
+<div class="sheet" id="sheet_log">
+  <h3>Zuletzt gezählt</h3>
+  <p class="warum">Storno bucht gegen – gelöscht wird nichts.</p>
+  <ul class="liste" id="log_liste"></ul>
+</div>
 
 <script src="/app.js"></script>
 </body>
