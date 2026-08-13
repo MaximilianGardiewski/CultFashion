@@ -10,8 +10,10 @@
 const $ = (id) => document.getElementById(id);
 const zustand = {
   inventurId: null, bereichId: null, bereichName: "", name: "",
+  token: null, rolle: null,
   letzterEventId: null, teile: 0, letzteFarbwahl: null,
 };
+const istAdmin = () => zustand.rolle === "admin";
 
 /* ---------- Speicher & API ---------- */
 
@@ -24,14 +26,24 @@ function merkeZustand() {
   localStorage.setItem("inventur", JSON.stringify({
     inventurId: zustand.inventurId, bereichId: zustand.bereichId,
     bereichName: zustand.bereichName, name: zustand.name,
+    token: zustand.token, rolle: zustand.rolle,
   }));
 }
 
 async function api(pfad, optionen = {}) {
-  const antwort = await fetch("/api" + pfad, {
-    headers: optionen.body instanceof FormData ? {} : { "Content-Type": "application/json" },
-    ...optionen,
-  });
+  const kopf = optionen.body instanceof FormData
+    ? {} : { "Content-Type": "application/json" };
+  if (zustand.token) kopf["X-Token"] = zustand.token;
+
+  const antwort = await fetch("/api" + pfad, { headers: kopf, ...optionen });
+
+  if (antwort.status === 401) {
+    // Token abgelaufen oder abgemeldet - zurück zur Anmeldung, statt eine
+    // Fehlermeldung zu zeigen, mit der niemand etwas anfangen kann.
+    zustand.token = null; zustand.rolle = null; merkeZustand();
+    zeigeAnmeldung();
+    throw new Error("Bitte neu anmelden.");
+  }
   if (!antwort.ok) {
     let text = antwort.statusText;
     try {
@@ -48,6 +60,66 @@ async function api(pfad, optionen = {}) {
   }
   return antwort.status === 204 ? null : antwort.json();
 }
+
+/* ---------- Anmeldung ---------- */
+
+let ersterBenutzer = false;
+
+async function pruefeEinrichtung() {
+  try {
+    const stand = await (await fetch("/api/einrichtung")).json();
+    ersterBenutzer = !stand.benutzer_vorhanden;
+  } catch { ersterBenutzer = false; }
+
+  $("an_titel").textContent = ersterBenutzer ? "Erste Anmeldung einrichten" : "Anmelden";
+  $("an_hinweis").textContent = ersterBenutzer
+    ? "Es ist noch niemand angelegt. Wer sich hier einträgt, wird Administratorin."
+    : "Name und PIN wie besprochen.";
+  $("an_senden").textContent = ersterBenutzer ? "Anlegen und anmelden" : "Anmelden";
+}
+
+function zeigeAnmeldung() {
+  $("anmeldung").classList.remove("versteckt");
+  pruefeEinrichtung();
+}
+
+async function anmelden() {
+  const name = $("an_name").value.trim();
+  const pin = $("an_pin").value;
+  if (!name || !pin) return;
+
+  $("an_senden").disabled = true;
+  $("an_fehler").innerHTML = "";
+  try {
+    if (ersterBenutzer) {
+      const antwort = await fetch("/api/benutzer", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, pin, rolle: "admin" }),
+      });
+      if (!antwort.ok) throw new Error((await antwort.json()).detail || "Fehlgeschlagen");
+    }
+
+    const antwort = await fetch("/api/anmeldung", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, pin, geraet: navigator.userAgent.slice(0, 120) }),
+    });
+    if (!antwort.ok) throw new Error((await antwort.json()).detail || "Fehlgeschlagen");
+
+    const daten = await antwort.json();
+    Object.assign(zustand, { token: daten.token, name: daten.name, rolle: daten.rolle });
+    merkeZustand();
+    $("an_pin").value = "";
+    $("anmeldung").classList.add("versteckt");
+    await starteApp();
+  } catch (fehler) {
+    $("an_fehler").innerHTML = `<div class="band schlecht">${fehler.message}</div>`;
+  } finally {
+    $("an_senden").disabled = false;
+  }
+}
+
+$("an_senden").addEventListener("click", anmelden);
+$("an_pin").addEventListener("keydown", (e) => { if (e.key === "Enter") anmelden(); });
 
 /* ---------- Rückmeldung: sehen, hören, spüren ---------- */
 
@@ -151,9 +223,8 @@ $("btn_laden").addEventListener("click", async () => {
   merkeZustand(); await ladeBereiche(); aktualisiereKopf();
 });
 
-$("feld_name").addEventListener("change", (e) => {
-  zustand.name = e.target.value.trim(); merkeZustand();
-});
+// Der Name kommt jetzt aus der Anmeldung und ist nicht mehr frei wählbar.
+$("feld_name").disabled = true;
 
 $("btn_import").addEventListener("click", async () => {
   if (!zustand.inventurId) return alert("Erst eine Inventur anlegen.");
@@ -188,10 +259,24 @@ $("btn_import").addEventListener("click", async () => {
 
 async function ladeBereiche() {
   if (!zustand.inventurId) return;
-  const liste = await api(`/inventuren/${zustand.inventurId}/bereiche`);
+  const baum = await api(`/inventuren/${zustand.inventurId}/bereiche`);
+
+  // Die API liefert Bereiche mit ihren Ständern. Gezählt wird auf
+  // Ständerebene, deshalb hier flach ausgerollt.
+  const liste = [];
+  for (const knoten of baum) {
+    liste.push(knoten);
+    for (const kind of knoten.kinder || []) liste.push({ ...kind, eingerueckt: true });
+  }
+
   const feld = $("feld_bereich");
   feld.innerHTML = liste.length
-    ? liste.map((b) => `<option value="${b.id}">${b.name} · ${b.teile} Teile</option>`).join("")
+    ? liste.map((b) => {
+        const stand = b.soll_teile
+          ? `${b.gezaehlt}/${b.soll_teile}` : `${b.gezaehlt} Teile`;
+        const wer = b.zugewiesen_an ? ` · ${b.zugewiesen_an}` : "";
+        return `<option value="${b.id}">${b.eingerueckt ? "   " : ""}${b.name} · ${stand}${wer}</option>`;
+      }).join("")
     : '<option value="">– noch keiner –</option>';
 
   if (!liste.some((b) => b.id === zustand.bereichId)) {
@@ -201,7 +286,7 @@ async function ladeBereiche() {
 
   const aktiv = liste.find((b) => b.id === zustand.bereichId);
   zustand.bereichName = aktiv ? aktiv.name : "";
-  zustand.teile = aktiv ? aktiv.teile : 0;
+  zustand.teile = aktiv ? aktiv.gezaehlt : 0;
   merkeZustand();
   aktualisiereKopf();
 }
@@ -350,6 +435,7 @@ function zeigeAuswahl(antwort) {
 
 $("b_undo").addEventListener("click", async () => {
   if (!zustand.letzterEventId) return;
+  if (!istAdmin()) return oeffneMarkierung(zustand.letzterEventId);
   try {
     const antwort = await api(
       `/inventuren/${zustand.inventurId}/scans/${zustand.letzterEventId}/storno` +
@@ -364,6 +450,51 @@ $("b_undo").addEventListener("click", async () => {
                           : "Das Protokoll behält beide Einträge");
     ladeLetzte();
   } catch (fehler) { melde("schlecht", "Storno nicht möglich", fehler.message, ""); }
+});
+
+/* ---------- Markieren ----------
+   Zählerinnen korrigieren nicht selbst: sie halten fest, was nicht stimmt,
+   und eine Administratorin entscheidet. Die Zählung bleibt unangetastet. */
+
+let markierungBezug = null;
+
+function oeffneMarkierung(scanEventId = null) {
+  markierungBezug = scanEventId;
+  $("mk_bezug").textContent = scanEventId
+    ? "Zur letzten Buchung – was stimmt nicht?"
+    : `Bereich ${zustand.bereichName || "–"} – was stimmt nicht?`;
+  $("mk_grund").value = "";
+  oeffneSheet("sheet_markierung");
+}
+
+$("mk_stufen").querySelectorAll(".stufe").forEach((b) =>
+  b.addEventListener("click", () => {
+    $("mk_stufen").querySelectorAll(".stufe").forEach((x) => x.classList.remove("aktiv"));
+    b.classList.add("aktiv");
+  }));
+
+$("mk_senden").addEventListener("click", async () => {
+  const grund = $("mk_grund").value.trim();
+  if (grund.length < 3) {
+    $("mk_grund").focus();
+    return;
+  }
+  const stufe = Number($("mk_stufen").querySelector(".stufe.aktiv").dataset.stufe);
+  try {
+    await api(`/inventuren/${zustand.inventurId}/markierungen`, {
+      method: "POST",
+      body: JSON.stringify({
+        grund, dringlichkeit: stufe,
+        scan_event_id: markierungBezug,
+        zaehlbereich_id: markierungBezug ? null : zustand.bereichId,
+      }),
+    });
+    schliesseSheets();
+    melde("info", "Gemeldet", "Markierung abgeschickt",
+          `Dringlichkeit ${stufe} · die Zählung bleibt unverändert`);
+  } catch (fehler) {
+    melde("schlecht", "Fehler", fehler.message, "");
+  }
 });
 
 /* ---------- Protokoll ---------- */
@@ -401,7 +532,8 @@ async function ladeLog() {
         <div>${e.artikel}</div>
         <small>${new Date(e.erfasst_am).toLocaleTimeString("de-DE")} · ${e.erfasst_von} · ${e.erfassungsart}</small>
       </span>
-      ${e.stornierbar ? `<button class="knopf klein" data-storno="${e.id}">Storno</button>` : ""}
+      ${e.stornierbar && istAdmin()
+          ? `<button class="knopf klein" data-storno="${e.id}">Storno</button>` : ""}
     </li>`).join("") : "<li><small>noch nichts gezählt</small></li>";
 
   $("log_liste").querySelectorAll("[data-storno]").forEach((b) =>
@@ -593,15 +725,25 @@ $("b_export").addEventListener("click", () => {
 
 /* ---------- Start ---------- */
 
-(async function start() {
-  ladeZustand();
+async function starteApp() {
   $("feld_name").value = zustand.name || "";
+  $("b_undo").textContent = istAdmin() ? "↺ Rückgängig" : "⚑ Markieren";
   aktualisiereKopf();
   try {
     await ladeInventuren();
     if (zustand.inventurId) { await ladeBereiche(); await ladeLetzte(); }
   } catch (fehler) {
     console.error(fehler);
+  }
+}
+
+(async function start() {
+  ladeZustand();
+  if (zustand.token) {
+    $("anmeldung").classList.add("versteckt");
+    await starteApp();
+  } else {
+    zeigeAnmeldung();
   }
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("/sw.js").catch(() => {});

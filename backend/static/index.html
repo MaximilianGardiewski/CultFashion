@@ -194,6 +194,21 @@ nav button{flex:1;border:0;background:none;padding:9px 4px;color:var(--leise);
 nav button.aktiv{color:var(--akzent);box-shadow:inset 0 2px 0 var(--akzent)}
 nav button span{display:block;font-size:18px;line-height:1.25}
 .versteckt{display:none!important}
+
+/* ---------- Anmeldung ---------- */
+.anmeldung{position:fixed;inset:0;z-index:60;background:var(--grund);
+           display:flex;align-items:center;justify-content:center;padding:22px}
+.anmeldung.versteckt{display:none}
+.anmeldebox{width:100%;max-width:360px}
+.anmeldebox .marke{font-family:var(--mono);font-size:10px;letter-spacing:.18em;
+                   text-transform:uppercase;color:var(--akzent)}
+.anmeldebox h1{font-size:27px;font-weight:640;margin:6px 0 2px;letter-spacing:-.02em}
+
+textarea{width:100%;padding:12px;border-radius:11px;border:1px solid var(--linie);
+         background:var(--grund);color:var(--text);font:inherit;resize:vertical}
+.stufen{display:flex;gap:8px;margin-top:10px}
+.stufen .knopf{flex:1;padding:11px 6px;font-size:12.5px;font-weight:600}
+.stufen .knopf.aktiv{background:var(--akzent-tief);border-color:var(--akzent);color:var(--akzent)}
 </style>
 </head>
 <body>
@@ -322,7 +337,33 @@ nav button span{display:block;font-size:18px;line-height:1.25}
   <button data-seite="setup" class="aktiv"><span>⚙</span>Setup</button>
 </nav>
 
+<!-- Anmeldung liegt über allem, solange kein Token da ist -->
+<div class="anmeldung" id="anmeldung">
+  <div class="anmeldebox">
+    <div class="marke">Cult Fashion · Inventur</div>
+    <h1 id="an_titel">Anmelden</h1>
+    <p class="hinweis" id="an_hinweis">Name und PIN wie besprochen.</p>
+    <input id="an_name" placeholder="Name" autocomplete="username">
+    <input id="an_pin" type="password" inputmode="numeric" placeholder="PIN"
+           autocomplete="current-password" style="margin-top:9px">
+    <button class="knopf haupt" id="an_senden" style="width:100%;margin-top:12px">Anmelden</button>
+    <div id="an_fehler"></div>
+  </div>
+</div>
+
 <div class="schleier" id="schleier"></div>
+
+<div class="sheet" id="sheet_markierung">
+  <h3>Markieren</h3>
+  <p class="warum" id="mk_bezug">Was stimmt hier nicht?</p>
+  <textarea id="mk_grund" rows="3" placeholder="z. B. Etikett fehlt, Ware beschädigt, versehentlich doppelt gescannt"></textarea>
+  <div class="stufen" id="mk_stufen">
+    <button class="knopf stufe" data-stufe="1">1 · kann warten</button>
+    <button class="knopf stufe aktiv" data-stufe="2">2 · heute</button>
+    <button class="knopf stufe" data-stufe="3">3 · sofort</button>
+  </div>
+  <button class="knopf haupt" id="mk_senden" style="width:100%;margin-top:12px">Melden</button>
+</div>
 
 <div class="sheet" id="sheet_farben">
   <h3>Welcher Artikel?</h3>
