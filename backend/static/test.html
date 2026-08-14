@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Scan-Testlauf – Barcodes für den Laptop</title>
+<style>
+:root{--bg:#f4f6fa;--karte:#fff;--rand:#d7dde8;--text:#1a1f2b;--gedimmt:#5d6880;
+      --akzent:#2563eb;--ok:#1e7b34;--fehler:#b03030;--warn:#a8730a}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);
+     font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+header{background:#12161f;color:#fff;padding:14px 22px;display:flex;align-items:center;gap:16px}
+header b{font-size:17px}
+header .fortschritt{margin-left:auto;font-variant-numeric:tabular-nums;color:#98a3b8}
+main{max-width:980px;margin:22px auto;padding:0 18px}
+
+.buehne{background:var(--karte);border:1px solid var(--rand);border-radius:16px;
+        padding:26px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.marke{color:var(--akzent);font-weight:700;font-size:13px;letter-spacing:.08em;text-transform:uppercase}
+h1{font-size:26px;margin:6px 0 2px}
+.untertitel{color:var(--gedimmt);margin-bottom:20px}
+#barcode{display:block;margin:0 auto;max-width:100%;height:auto}
+.ean{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:15px;color:var(--gedimmt);margin-top:6px}
+
+.erwartet{background:#eef4ff;border:1px solid #c3d6fb;border-radius:12px;
+          padding:14px 16px;margin-top:20px;text-align:left}
+.erwartet b{display:block;font-size:12px;text-transform:uppercase;letter-spacing:.05em;
+            color:var(--akzent);margin-bottom:4px}
+
+.pruefstand{display:flex;align-items:center;gap:10px;margin-top:14px;padding:12px 16px;
+            border-radius:12px;background:#f2f4f8;border:1px solid var(--rand);
+            text-align:left;font-size:14.5px}
+.pruefstand.warte{background:#f2f4f8}
+.pruefstand.ok{background:#e8f6ec;border-color:#9ed6ae;color:var(--ok);font-weight:600}
+.pruefstand.fehler{background:#fdecea;border-color:#f0b3ae;color:var(--fehler);font-weight:600}
+.pruefstand.aus{background:#fff8e6;border-color:#f0d79a;color:var(--warn)}
+.p_detail{margin-left:auto;font-size:12.5px;color:var(--gedimmt);font-weight:400;
+          font-family:ui-monospace,monospace;text-align:right}
+.punkt{width:10px;height:10px;border-radius:50%;background:var(--gedimmt);flex:0 0 auto}
+.pruefstand.warte .punkt{background:var(--akzent);animation:pulsieren 1.1s infinite}
+.pruefstand.ok .punkt{background:var(--ok);animation:none}
+.pruefstand.fehler .punkt{background:var(--fehler);animation:none}
+.pruefstand.aus .punkt{background:var(--warn);animation:none}
+@keyframes pulsieren{0%,100%{opacity:1}50%{opacity:.25}}
+header select{background:#232c3e;color:#fff;border:1px solid #3a445c;border-radius:8px;
+              padding:6px 10px;font:inherit;font-size:13px;max-width:340px}
+
+.steuerung{display:flex;gap:10px;margin-top:18px;flex-wrap:wrap}
+button{font:inherit;padding:13px 20px;border-radius:10px;border:1px solid var(--rand);
+       background:#fff;cursor:pointer;font-weight:600}
+button.haupt{background:var(--akzent);border-color:var(--akzent);color:#fff;flex:1}
+button.ok{background:#e8f6ec;border-color:#9ed6ae;color:var(--ok)}
+button.fehler{background:#fdecea;border-color:#f0b3ae;color:var(--fehler)}
+button:disabled{opacity:.4;cursor:default}
+
+.liste{background:var(--karte);border:1px solid var(--rand);border-radius:14px;margin-top:20px;overflow:hidden}
+.liste h2{font-size:13px;text-transform:uppercase;letter-spacing:.05em;color:var(--gedimmt);
+          margin:0;padding:10px 16px;border-bottom:1px solid var(--rand);
+          display:flex;align-items:center;gap:12px}
+button.reset{margin-left:auto;padding:6px 12px;font-size:12px;text-transform:none;letter-spacing:0}
+.zeile{display:flex;align-items:center;gap:12px;padding:9px 16px;border-bottom:1px solid #eef1f6;cursor:pointer;font-size:14px}
+.zeile:last-child{border-bottom:0}
+.zeile:hover{background:#f7f9fc}
+.zeile.aktiv{background:#eef4ff}
+.zeile .nr{font-weight:700;width:42px;color:var(--gedimmt)}
+.zeile .titel{flex:1}
+.status{font-size:19px;width:26px;text-align:center}
+
+.hinweis{background:#fff8e6;border:1px solid #f0d79a;border-radius:12px;padding:14px 16px;
+         margin-top:20px;font-size:14.5px}
+.hinweis code{background:#00000010;padding:1px 5px;border-radius:4px;font-size:13px}
+kbd{background:#fff;border:1px solid var(--rand);border-bottom-width:2px;border-radius:5px;
+    padding:1px 6px;font-size:13px;font-family:inherit}
+.fertig{margin-top:20px;padding:16px;border-radius:12px;font-weight:600;text-align:center}
+</style>
+</head>
+<body>
+
+<header>
+  <b>Scan-Testlauf</b>
+  <select id="feld_inventur" title="Welche Inventur wird beobachtet?"></select>
+  <span class="fortschritt" id="fortschritt"></span>
+</header>
+
+<main>
+  <div class="buehne">
+    <div class="marke" id="t_nr"></div>
+    <h1 id="t_titel"></h1>
+    <div class="untertitel" id="t_situation"></div>
+    <svg id="barcode"></svg>
+    <div class="ean" id="t_ean"></div>
+
+    <div class="erwartet">
+      <b>Das muss die App tun</b>
+      <span id="t_erwartet"></span>
+    </div>
+
+    <div class="pruefstand" id="pruefstand">
+      <span class="punkt" id="p_punkt"></span>
+      <span id="p_text">warte auf Scan …</span>
+      <span class="p_detail" id="p_detail"></span>
+    </div>
+
+    <div class="steuerung">
+      <button id="btn_zurueck">← Zurück</button>
+      <button class="ok" id="btn_ok" style="flex:1">✓ manuell ok</button>
+      <button class="fehler" id="btn_fehler" style="flex:1">✗ Fehler</button>
+      <button class="haupt" id="btn_weiter" style="flex:0 0 auto">Weiter →</button>
+    </div>
+  </div>
+
+  <div class="hinweis">
+    <b>Bevor es losgeht</b><br>
+    Handy und Laptop im selben WLAN. Die App auf dem Handy über die
+    <b>https</b>-Adresse öffnen, die beim Serverstart ausgegeben wird — bei
+    <code>http</code> gibt Chrome die Kamera nicht frei. Die Zertifikatswarnung
+    einmal über „Erweitert → Weiter“ bestätigen.<br><br>
+    Oben rechts die Inventur wählen, die auf dem Handy geöffnet ist – die Seite
+    liest dann selbst mit, was gebucht wird, und blättert nach einem erkannten
+    Scan von allein weiter. Die Knöpfe sind nur zum Übersteuern.<br><br>
+    Bildschirmhelligkeit hoch, Handy 15–25 cm vor den Monitor.
+    <kbd>→</kbd> weiter · <kbd>←</kbd> zurück · <kbd>1</kbd> ok · <kbd>2</kbd> falsch
+  </div>
+
+  <div class="liste">
+    <h2>Testfälle
+      <button id="btn_reset" class="reset">Von vorne beginnen</button>
+    </h2>
+    <div id="uebersicht"></div>
+  </div>
+
+  <div id="ergebnis"></div>
+</main>
+
+<script>
+/* Testfaelle - identisch zu samples/3_scan_testfaelle.xlsx und den
+   Backend-Tests in tests/test_scan_dienst.py. */
+const FAELLE = [
+  { nr:"T1", ean:"4053121000035", titel:"Normalfall",
+    situation:"Opus Bluse Falia · offwhite · Gr. 38",
+    erwartet:"Sofort +1 buchen, Artikel grün einblenden, kein Dialog. Zähler steigt.",
+    pruefung:{art:"scan", ean:"4053121000035"} },
+  { nr:"T2", ean:"4184711001658", titel:"Eine EAN, vier Farben",
+    situation:"Tom Tailor Tasche Shopper Lea · onesize",
+    erwartet:"Farbauswahl erscheint (black / camel / navy / bordeaux). Erst nach der Auswahl wird gebucht.",
+    pruefung:{art:"auswahl", enthaelt:["Shopper Lea"]} },
+  { nr:"T3", ean:"4184711001665", titel:"Eine EAN, drei Farben",
+    situation:"Tom Tailor Loop Basic · onesize",
+    erwartet:"Wie T2. Die zuletzt gewählte Farbe steht oben.",
+    pruefung:{art:"auswahl", enthaelt:["Loop Basic"]} },
+  { nr:"T4", ean:"0531201001676", titel:"EAN mit führender Null",
+    situation:"Opus Gürtel Basic · black",
+    erwartet:"Wird gefunden und gebucht. Wenn hier „nicht im Sollbestand“ kommt, ist die führende Null verloren gegangen.",
+    pruefung:{art:"scan", ean:"0531201001676", nichtEnthaelt:["unbekannt"]} },
+  { nr:"T5", ean:"5733551001282", titel:"Doppelte EAN – Datenfehler",
+    situation:"Dieselbe EAN auf Top Onlmoster und Bluse Vmbeauty",
+    erwartet:"Auswahl mit beiden Artikeln, inklusive Marke zur Unterscheidung.",
+    pruefung:{art:"auswahl", einesVon:["Onlmoster","Vmbeauty"]} },
+  { nr:"T6", ean:null, titel:"Artikel ohne Barcode",
+    situation:"Kleid Wilana Gr. 38 hat keine EAN im Stamm",
+    erwartet:"Nichts zu scannen. Im Reiter „Suche“ nach „Wilana“ suchen und über +1 zählen – wird als „manuell“ protokolliert.",
+    pruefung:{art:"manuell", enthaelt:["Wilana"]} },
+  { nr:"T7", ean:"4014819072505", titel:"Unbekannter Artikel",
+    situation:"Gültige EAN, steht nicht in der Importdatei",
+    erwartet:"Gelbe Meldung „Nicht im Sollbestand“, Zähler „unbekannt“ steigt. Die Zählung läuft weiter – sie darf NIE blockieren.",
+    pruefung:{ean:"4014819072505", enthaelt:["unbekannt"]} },
+  { nr:"T8", ean:"4060421001464", titel:"Negativer Buchbestand",
+    situation:"Angels Jeans Cici 40/32 denim, Buchbestand −2",
+    erwartet:"Normal buchen. In der Auswertung ergibt 1 gezählt eine Differenz von +3.",
+    pruefung:{enthaelt:["Jeans Cici","40/32"]} },
+  { nr:"T10", ean:"4053121000035", titel:"Zwei Teile hintereinander",
+    situation:"Denselben Code zweimal scannen, dazwischen Handy kurz wegdrehen",
+    erwartet:"Zählt zweimal. Barcode ruhig im Bild halten darf dagegen NICHT hochzählen – das ist der eigentliche Test.",
+    pruefung:{art:"scan", ean:"4053121000035", anzahl:2} },
+  { nr:"T11", ean:"4053121000035", titel:"Storno",
+    situation:"Scannen, dann „Letzten rückgängig“ drücken",
+    erwartet:"Zähler geht zurück. Im Log stehen weiterhin beide Buchungen (+1 und −1) – nichts wird gelöscht.",
+    pruefung:{art:"storno"} },
+  { nr:"T12", ean:"4012345678902", format:"code128", titel:"Prüfziffer falsch",
+    situation:"Beschädigtes oder falsch gedrucktes Etikett",
+    erwartet:"Rote Meldung, tiefer Fehlton, KEINE Buchung. Darf nicht als „unbekannt“ durchrutschen.",
+    pruefung:{invers:true, sekunden:12} },
+];
+
+/* ---------- EAN-13 als SVG ---------- */
+const L = ["0001101","0011001","0010011","0111101","0100011","0110001","0101111","0111011","0110111","0001011"];
+const G = ["0100111","0110011","0011011","0100001","0011101","0111001","0000101","0010001","0001001","0010111"];
+const R = L.map((m) => [...m].map((b) => (b === "0" ? "1" : "0")).join(""));
+const PARITAET = ["LLLLLL","LLGLGG","LLGGLG","LLGGGL","LGLLGG","LGGLLG","LGGGLL","LGLGLG","LGLGGL","LGGLGL"];
+
+function ean13Muster(ean) {
+  const z = [...ean].map(Number);
+  const paritaet = PARITAET[z[0]];
+  let muster = "101";
+  for (let i = 1; i <= 6; i++) muster += (paritaet[i - 1] === "L" ? L : G)[z[i]];
+  muster += "01010";
+  for (let i = 7; i <= 12; i++) muster += R[z[i]];
+  return muster + "101";
+}
+
+/* Code 128, Zeichensatz B. Zeichensatz C waere kompakter, kodiert aber
+   Ziffernpaare - bei ungerader Laenge muesste eine Null vorangestellt werden
+   und der Scanner laese einen anderen Code als gemeint. */
+const C128 = ["11011001100","11001101100","11001100110","10010011000","10010001100","10001001100","10011001000","10011000100","10001100100","11001001000","11001000100","11000100100","10110011100","10011011100","10011001110","10111001100","10011101100","10011100110","11001110010","11001011100","11001001110","11011100100","11001110100","11101101110","11101001100","11100101100","11100100110","11101100100","11100110100","11100110010","11011011000","11011000110","11000110110","10100011000","10001011000","10001000110","10110001000","10001101000","10001100010","11010001000","11000101000","11000100010","10110111000","10110001110","10001101110","10111011000","10111000110","10001110110","11101110110","11010001110","11000101110","11011101000","11011100010","11011101110","11101011000","11101000110","11100010110","11101101000","11101100010","11100011010","11101111010","11001000010","11110001010","10100110000","10100001100","10010110000","10010000110","10000101100","10000100110","10110010000","10110000100","10011010000","10011000010","10000110100","10000110010","11000010010","11001010000","11110111010","11000010100","10001111010","10100111100","10010111100","10010011110","10111100100","10011110100","10011110010","11110100100","11110010100","11110010010","11011011110","11011110110","11110110110","10101111000","10100011110","10001011110","10111101000","10111100010","11110101000","11110100010","10111011110","10111101110","11101011110","11110101110","11010000100","11010010000","11010011100","11000111010"];
+function code128bMuster(text) {
+  let muster = C128[104];                     // Start B
+  let summe = 104, gewicht = 1;
+  for (const zeichen of text) {
+    const wert = zeichen.charCodeAt(0) - 32;
+    muster += C128[wert];
+    summe += wert * gewicht++;
+  }
+  return muster + C128[summe % 103] + "1100011101011";   // Prüfzeichen + Stop
+}
+
+function zeichne(svg, muster, beschriftung) {
+  const modul = 3, hoehe = 190, rand = 30, textHoehe = 26;
+  const breite = muster.length * modul + rand * 2;
+  svg.setAttribute("viewBox", `0 0 ${breite} ${hoehe + textHoehe}`);
+  svg.setAttribute("width", Math.min(breite, 640));
+  svg.innerHTML =
+    `<rect width="${breite}" height="${hoehe + textHoehe}" fill="#fff"/>` +
+    [...muster].map((bit, i) =>
+      bit === "1"
+        ? `<rect x="${rand + i * modul}" y="10" width="${modul}" height="${hoehe - 20}" fill="#000"/>`
+        : "").join("") +
+    `<text x="${breite / 2}" y="${hoehe + 14}" text-anchor="middle"
+       font-family="ui-monospace,monospace" font-size="20" letter-spacing="3">${beschriftung}</text>`;
+}
+
+/* ---------- Ablauf ---------- */
+let index = 0;
+const ergebnisse = JSON.parse(localStorage.getItem("testlauf") || "{}");
+let inventurId = Number(localStorage.getItem("testlauf_inventur")) || null;
+
+function $(id) { return document.getElementById(id); }
+function merke() { localStorage.setItem("testlauf", JSON.stringify(ergebnisse)); }
+
+/* ---------- Automatische Prüfung ----------
+   Testseite und App hängen am selben Backend. Statt dass jemand von Hand
+   abhakt, liest die Seite das Scan-Log mit und entscheidet selbst.
+   Vor jedem Fall wird die höchste bekannte Event-ID gemerkt; gewertet wird
+   nur, was danach dazukommt. */
+
+let basisId = null;          // Stand des Logs, als der Fall aufgerufen wurde
+let laufendeAbfrage = null;
+let inversBis = null;        // Ablaufzeitpunkt für T12 (es DARF nichts kommen)
+
+async function api(pfad) {
+  const antwort = await fetch("/api" + pfad);
+  if (!antwort.ok) throw new Error(antwort.statusText);
+  return antwort.json();
+}
+
+function passt(eintrag, regel) {
+  if (regel.art && eintrag.erfassungsart !== regel.art) return false;
+  if (regel.ean && eintrag.ean !== regel.ean) return false;
+
+  const text = (eintrag.artikel || "").toLowerCase();
+  if (regel.enthaelt && !regel.enthaelt.every((s) => text.includes(s.toLowerCase())))
+    return false;
+  if (regel.nichtEnthaelt && regel.nichtEnthaelt.some((s) => text.includes(s.toLowerCase())))
+    return false;
+  if (regel.einesVon && !regel.einesVon.some((s) => text.includes(s.toLowerCase())))
+    return false;
+  return true;
+}
+
+function setzeStand(zustand, text, detail = "") {
+  $("pruefstand").className = "pruefstand " + zustand;
+  $("p_text").textContent = text;
+  $("p_detail").textContent = detail;
+}
+
+async function ladeInventuren() {
+  let liste = [];
+  try { liste = await api("/inventuren"); } catch { /* Server noch nicht da */ }
+
+  const feld = $("feld_inventur");
+  feld.innerHTML = liste.length
+    ? liste.map((i) => `<option value="${i.id}">#${i.id} · ${i.bezeichnung} · ${i.positionen} Artikel</option>`).join("")
+    : '<option value="">– keine Inventur –</option>';
+
+  if (!liste.some((i) => i.id === inventurId)) inventurId = liste.length ? liste[0].id : null;
+  if (inventurId) {
+    feld.value = String(inventurId);
+    localStorage.setItem("testlauf_inventur", String(inventurId));
+  }
+}
+
+$("feld_inventur").addEventListener("change", (e) => {
+  inventurId = Number(e.target.value) || null;
+  localStorage.setItem("testlauf_inventur", String(inventurId || ""));
+  starteFall();
+});
+
+async function hoechsteEventId() {
+  if (!inventurId) return null;
+  const log = await api(`/inventuren/${inventurId}/log?grenze=1`);
+  return log.length ? log[0].id : 0;
+}
+
+async function starteFall() {
+  basisId = null;
+  inversBis = null;
+  const fall = FAELLE[index];
+
+  if (ergebnisse[fall.nr]) {
+    setzeStand(ergebnisse[fall.nr] === "ok" ? "ok" : "fehler",
+               ergebnisse[fall.nr] === "ok" ? "bereits bestanden" : "als Fehler vermerkt",
+               "Prüfung pausiert");
+    return;
+  }
+  if (!inventurId) {
+    setzeStand("aus", "Keine Inventur gewählt – automatische Prüfung aus.",
+               "oben rechts wählen");
+    return;
+  }
+
+  try {
+    basisId = await hoechsteEventId();
+  } catch {
+    setzeStand("aus", "Server nicht erreichbar – automatische Prüfung aus.");
+    return;
+  }
+
+  if (fall.pruefung && fall.pruefung.invers) {
+    inversBis = Date.now() + fall.pruefung.sekunden * 1000;
+    setzeStand("warte", "Jetzt scannen – es darf NICHTS gebucht werden.",
+               `${fall.pruefung.sekunden} s`);
+  } else {
+    setzeStand("warte", "warte auf Scan …", `ab Eintrag #${basisId}`);
+  }
+}
+
+async function pruefe() {
+  const fall = FAELLE[index];
+  if (!inventurId || basisId === null || ergebnisse[fall.nr] || !fall.pruefung) return;
+  if (laufendeAbfrage) return;
+
+  laufendeAbfrage = true;
+  try {
+    const log = await api(`/inventuren/${inventurId}/log?grenze=60`);
+    const neue = log.filter((e) => e.id > basisId);
+
+    if (fall.pruefung.invers) {
+      if (neue.length) {
+        bewerte("fehler", `gebucht: ${neue[0].artikel}`);
+      } else if (Date.now() > inversBis) {
+        bewerte("ok", "nichts gebucht – korrekt abgewiesen");
+      } else {
+        setzeStand("warte", "Jetzt scannen – es darf NICHTS gebucht werden.",
+                   `noch ${Math.ceil((inversBis - Date.now()) / 1000)} s`);
+      }
+      return;
+    }
+
+    const treffer = neue.filter((e) => passt(e, fall.pruefung));
+    const noetig = fall.pruefung.anzahl || 1;
+
+    if (treffer.length >= noetig) {
+      bewerte("ok", treffer[0].artikel);
+    } else if (neue.length) {
+      setzeStand("warte",
+        treffer.length ? `${treffer.length} von ${noetig} erkannt …`
+                       : `gebucht, aber nicht wie erwartet: ${neue[0].artikel}`,
+        `${neue.length} neue Einträge`);
+    }
+  } catch {
+    setzeStand("aus", "Server nicht erreichbar – automatische Prüfung aus.");
+  } finally {
+    laufendeAbfrage = false;
+  }
+}
+
+function bewerte(wert, detail = "") {
+  const fall = FAELLE[index];
+  ergebnisse[fall.nr] = wert;
+  merke();
+  setzeStand(wert, wert === "ok" ? "bestanden" : "fehlgeschlagen", detail);
+  zeichneUebersicht();
+  zeigeErgebnis();
+
+  const naechster = FAELLE.findIndex((f, i) => i > index && !ergebnisse[f.nr]);
+  if (naechster !== -1) setTimeout(() => { index = naechster; zeige(); }, 1200);
+}
+
+setInterval(pruefe, 800);
+setInterval(ladeInventuren, 15000);
+
+/* ---------- Anzeige ---------- */
+
+function zeige() {
+  const f = FAELLE[index];
+  $("t_nr").textContent = f.nr;
+  $("t_titel").textContent = f.titel;
+  $("t_situation").textContent = f.situation;
+  $("t_erwartet").textContent = f.erwartet;
+  $("fortschritt").textContent = `${index + 1} / ${FAELLE.length}`;
+
+  const svg = $("barcode");
+  if (!f.ean) {
+    svg.innerHTML = "";
+    svg.removeAttribute("viewBox");
+    $("t_ean").textContent = "— kein Barcode vorhanden, das ist der Testfall —";
+  } else if (f.format === "code128") {
+    zeichne(svg, code128bMuster(f.ean), f.ean);
+    $("t_ean").textContent = f.ean + "  (Code 128 – als EAN-13 nicht darstellbar)";
+  } else {
+    zeichne(svg, ean13Muster(f.ean), f.ean);
+    $("t_ean").textContent = f.ean;
+  }
+
+  $("btn_zurueck").disabled = index === 0;
+  zeichneUebersicht();
+  zeigeErgebnis();
+  starteFall();
+}
+
+function zeichneUebersicht() {
+  $("uebersicht").innerHTML = FAELLE.map((f, i) => {
+    const zeichen = ergebnisse[f.nr] === "ok" ? "✓"
+                  : ergebnisse[f.nr] === "fehler" ? "✗" : "·";
+    const farbe = ergebnisse[f.nr] === "ok" ? "var(--ok)"
+                : ergebnisse[f.nr] === "fehler" ? "var(--fehler)" : "var(--gedimmt)";
+    return `<div class="zeile ${i === index ? "aktiv" : ""}" data-i="${i}">
+      <span class="nr">${f.nr}</span>
+      <span class="titel">${f.titel}</span>
+      <span class="status" style="color:${farbe}">${zeichen}</span></div>`;
+  }).join("");
+  $("uebersicht").querySelectorAll(".zeile").forEach((z) =>
+    z.addEventListener("click", () => { index = Number(z.dataset.i); zeige(); }));
+}
+
+function zeigeErgebnis() {
+  const bewertet = FAELLE.filter((f) => ergebnisse[f.nr]).length;
+  const fehler = FAELLE.filter((f) => ergebnisse[f.nr] === "fehler");
+  if (bewertet < FAELLE.length) { $("ergebnis").innerHTML = ""; return; }
+  $("ergebnis").innerHTML = fehler.length
+    ? `<div class="fertig" style="background:#fdecea;color:var(--fehler)">
+         ${fehler.length} Testfälle fehlgeschlagen: ${fehler.map((f) => f.nr).join(", ")}</div>`
+    : `<div class="fertig" style="background:#e8f6ec;color:var(--ok)">
+         Alle ${FAELLE.length} Testfälle bestanden.</div>`;
+}
+
+$("btn_reset").addEventListener("click", () => {
+  if (!confirm("Alle Häkchen löschen und wieder bei T1 anfangen?")) return;
+  for (const schluessel of Object.keys(ergebnisse)) delete ergebnisse[schluessel];
+  merke();
+  index = 0;
+  zeige();
+});
+
+$("btn_weiter").addEventListener("click", () => { if (index < FAELLE.length - 1) index++; zeige(); });
+$("btn_zurueck").addEventListener("click", () => { if (index > 0) index--; zeige(); });
+$("btn_ok").addEventListener("click", () => bewerte("ok", "von Hand bestätigt"));
+$("btn_fehler").addEventListener("click", () => bewerte("fehler", "von Hand vermerkt"));
+
+document.addEventListener("keydown", (e) => {
+  if (e.key === "ArrowRight" || e.key === " ") { e.preventDefault(); $("btn_weiter").click(); }
+  else if (e.key === "ArrowLeft") $("btn_zurueck").click();
+  else if (e.key === "1") $("btn_ok").click();
+  else if (e.key === "2") $("btn_fehler").click();
+});
+
+ladeInventuren().then(zeige);
+</script>
+</body>
+</html>
